@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Court Reservations - Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="tennis-ball-loader">
+                <div class="ball"></div>
+                <div class="shadow"></div>
+            </div>
+            <h2>Loading Dashboard...</h2>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-tennis-ball"></i>
+                <span>Tennis Club</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#dashboard" class="nav-link active" data-section="dashboard">
+                    <i class="fas fa-home"></i>Dashboard
+                </a>
+                <a href="#reservations" class="nav-link" data-section="reservations">
+                    <i class="fas fa-calendar-alt"></i>Book Court
+                </a>
+                <a href="#my-bookings" class="nav-link" data-section="my-bookings">
+                    <i class="fas fa-list"></i>My Bookings
+                </a>
+                <a href="#profile" class="nav-link" data-section="profile">
+                    <i class="fas fa-user"></i>Profile
+                </a>
+            </div>
+            <div class="nav-user">
+                <div class="user-info">
+                    <span id="userName">Loading...</span>
+                    <span id="userEmail">Loading...</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section active">
+            <div class="dashboard-header">
+                <h1>Welcome Back, <span id="dashboardUserName">Player</span>!</h1>
+                <p>Manage your tennis court reservations</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="totalBookings">0</h3>
+                        <p>Total Bookings</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="upcomingBookings">0</h3>
+                        <p>Upcoming</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="completedBookings">0</h3>
+                        <p>Completed</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-tennis-ball"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>5</h3>
+                        <p>Available Courts</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h2>Quick Actions</h2>
+                <div class="action-buttons">
+                    <button class="action-btn primary" onclick="dashboard.showQuickBookingModal()">
+                        <i class="fas fa-plus"></i>Book New Court
+                    </button>
+                    <button class="action-btn secondary" onclick="dashboard.showSection('my-bookings')">
+                        <i class="fas fa-list"></i>View My Bookings
+                    </button>
+                    <button class="action-btn tertiary" onclick="dashboard.checkAvailability()">
+                        <i class="fas fa-search"></i>Check Availability
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Reservations Section -->
+        <section id="reservations-section" class="content-section">
+            <div class="section-header">
+                <h1>Book Tennis Court</h1>
+                <p>Select a court, date, and time for your reservation</p>
+            </div>
+
+            <div class="booking-container">
+                <div class="booking-form-container">
+                    <form id="bookingForm" class="booking-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="courtSelect">Select Court</label>
+                                <select id="courtSelect" required>
+                                    <option value="">Choose a court...</option>
+                                    <option value="1">Court 1 - Clay Surface</option>
+                                    <option value="2">Court 2 - Clay Surface</option>
+                                    <option value="3">Court 3 - Clay Surface</option>
+                                    <option value="4">Court 4 - Clay Surface</option>
+                                    <option value="5">Court 5 - Clay Surface</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bookingDate">Date</label>
+                                <input type="date" id="bookingDate" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="startTime">Start Time</label>
+                                <select id="startTime" required>
+                                    <option value="">Select time...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="duration">Duration</label>
+                                <select id="duration" required>
+                                    <option value="">Select duration...</option>
+                                    <option value="60">1 Hour</option>
+                                    <option value="90">1.5 Hours</option>
+                                    <option value="120">2 Hours</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="bookingNotes">Notes (Optional)</label>
+                            <textarea id="bookingNotes" placeholder="Any special requirements or notes..."></textarea>
+                        </div>
+
+                        <button type="submit" class="submit-btn">
+                            <i class="fas fa-calendar-plus"></i>
+                            Book Court
+                        </button>
+                    </form>
+                </div>
+
+                <div class="court-availability">
+                    <h3>Court Availability</h3>
+                    <div id="availabilityGrid" class="availability-grid">
+                        <!-- Availability grid will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- My Bookings Section -->
+        <section id="my-bookings-section" class="content-section">
+            <div class="section-header">
+                <h1>My Bookings</h1>
+                <p>View and manage your court reservations</p>
+                <div class="filter-controls">
+                    <select id="bookingFilter">
+                        <option value="all">All Bookings</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="past">Past</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="bookingsList" class="bookings-list">
+                <!-- Bookings will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="profile-section" class="content-section">
+            <div class="section-header">
+                <h1>Profile Settings</h1>
+                <p>Manage your account information</p>
+            </div>
+
+            <div class="profile-container">
+                <div class="profile-card centered">
+    <div class="profile-avatar">
+        <i class="fas fa-user-circle"></i>
+    </div>
+    <div class="profile-info">
+        <h2 id="profileName">Loading...</h2>
+        <p id="profileEmail">Loading...</p>
+        <div class="membership-badge">
+            <span class="badge-label">Membership ID</span>
+            <span class="badge-value" id="profileMembershipId">Loading...</span>
+        </div>
+    </div>
+</div>
+
+                <div class="profile-stats">
+                    <h3>Your Statistics</h3>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <span class="stat-label">Member Since</span>
+                            <span id="memberSince" class="stat-value">Loading...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total Play Time</span>
+                            <span id="totalPlayTime" class="stat-value">0 hours</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Favorite Court</span>
+                            <span id="favoriteCourt" class="stat-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Confirm Action</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeModal()">Cancel</button>
+                <button id="confirmBtn" class="btn primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Availability Check Modal -->
+<div id="availabilityModal" class="modal">
+    <div class="modal-content availability-modal">
+        <div class="modal-header">
+            <h3>Check Court Availability</h3>
+            <button class="close-btn" onclick="closeAvailabilityModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="availability-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modalCourtSelect">Select Court</label>
+                        <select id="modalCourtSelect">
+                            <option value="">Choose a court...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="modalDateSelect">Select Date</label>
+                        <input type="date" id="modalDateSelect">
+                    </div>
+                </div>
+                
+                <div id="modalAvailabilityResults" class="availability-results">
+                    <p class="text-muted">Select a court and date to check availability</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Booking Modal -->
+<div id="quickBookingModal" class="modal">
+    <div class="modal-content quick-booking-modal">
+        <div class="modal-header">
+            <h3>Quick Book Court</h3>
+            <button class="close-btn" onclick="closeQuickBookingModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="quick-booking-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quickCourtSelect">Select Court</label>
+                        <select id="quickCourtSelect">
+                            <option value="">Choose a court...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quickDateSelect">Select Date</label>
+                        <input type="date" id="quickDateSelect">
+                    </div>
+                </div>
+                
+                <div id="quickBookingSlots" class="quick-booking-slots">
+                    <p class="text-muted">Select a court and date to view available slots</p>
+                </div>
+                
+                <div class="selected-slots-info" id="selectedSlotsInfo" style="display: none;">
+                    <h4>Selected Time Slots</h4>
+                    <div id="selectedSlotsList"></div>
+                    <div class="booking-summary">
+                        <p><strong>Total Duration:</strong> <span id="totalDuration">0</span> minutes</p>
+                        <button id="confirmQuickBooking" class="submit-btn" disabled>
+                            <i class="fas fa-calendar-plus"></i> Confirm Booking
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    <script src="dashboard.js"></script>
+</body>
+</html>

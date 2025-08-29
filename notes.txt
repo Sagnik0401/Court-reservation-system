@@ -1,0 +1,421 @@
+-- Complete Members Table Recreation Script
+-- Run this in your Supabase SQL Editor to completely recreate the members table
+
+-- 1. Drop all existing related objects (cascading will remove dependencies)
+DROP TABLE IF EXISTS members CASCADE;
+
+-- 2. Drop any existing functions related to members
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
+-- 3. Create the members table from scratch with your exact specifications
+CREATE TABLE members (
+  id SERIAL PRIMARY KEY,
+  email_id VARCHAR(255) UNIQUE NOT NULL,  -- Login field (email format)
+  membership_no VARCHAR(20) UNIQUE NOT NULL,  -- Password field (TM-172 format)
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('member', 'admin')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Create optimized indexes for login performance
+CREATE INDEX idx_members_email_id ON members(email_id);
+CREATE INDEX idx_members_membership_no ON members(membership_no);
+CREATE INDEX idx_members_role ON members(role);
+
+-- 5. Add table comments for documentation
+COMMENT ON TABLE members IS 'Tennis court system members table';
+COMMENT ON COLUMN members.email_id IS 'Login identifier - email format';
+COMMENT ON COLUMN members.membership_no IS 'Password field - format TM-XXX';
+COMMENT ON COLUMN members.role IS 'User role: member or admin';
+
+-- 6. Create the trigger function for auto-updating timestamps
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- 7. Create the trigger
+CREATE TRIGGER update_members_updated_at 
+  BEFORE UPDATE ON members 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 8. Enable Row Level Security
+ALTER TABLE members ENABLE ROW LEVEL SECURITY;
+
+-- 9. Create RLS policies for security
+
+-- Policy: Allow service role full access (for your server operations)
+CREATE POLICY "Service role full access" ON members
+  FOR ALL 
+  USING (auth.role() = 'service_role');
+
+-- Policy: Allow authenticated users to read their own data
+CREATE POLICY "Users can read own data" ON members
+  FOR SELECT 
+  USING (auth.uid()::text = id::text);
+
+-- Policy: Allow admins to read all data
+CREATE POLICY "Admins can read all data" ON members
+  FOR SELECT 
+  USING (
+    EXISTS (
+      SELECT 1 FROM members m 
+      WHERE m.id::text = auth.uid()::text 
+      AND m.role = 'admin'
+    )
+  );
+
+-- 10. Insert fresh test data with the exact format you specified
+INSERT INTO members (email_id, membership_no, first_name, last_name, role) VALUES
+  ('admin@tennis.com', 'TM-001', 'System', 'Administrator', 'admin'),
+  ('john.doe@gmail.com', 'TM-172', 'John', 'Doe', 'member'),
+  ('jane.smith@yahoo.com', 'TM-173', 'Jane', 'Smith', 'member'),
+  ('mike.wilson@outlook.com', 'TM-174', 'Mike', 'Wilson', 'member'),
+  ('sarah.brown@tennis.com', 'TM-175', 'Sarah', 'Brown', 'member'),
+  ('test@email.com', 'TM-999', 'Test', 'User', 'member');
+
+-- 11. Verify the table was created correctly
+SELECT 
+  'Table created successfully!' as status,
+  COUNT(*) as total_members,
+  COUNT(*) FILTER (WHERE role = 'admin') as admin_count,
+  COUNT(*) FILTER (WHERE role = 'member') as member_count
+FROM members;
+
+-- 12. Show sample data to verify structure
+SELECT 
+  id,
+  email_id,
+  membership_no,
+  first_name || ' ' || last_name as full_name,
+  role,
+  created_at
+FROM members
+ORDER BY role DESC, id;
+
+-- 13. Show table structure
+SELECT 
+  column_name,
+  data_type,
+  is_nullable,
+  column_default
+FROM information_schema.columns 
+WHERE table_name = 'members' 
+ORDER BY ordinal_position;
+
+members table sql above 
+
+courts+bookings below
+
+-- Tennis Court Reservation System - Database Setup
+-- Run this in your Supabase SQL Editor
+
+-- 1. CREATE COURTS TABLE
+CREATE TABLE courts (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
+  surface_type VARCHAR(20) DEFAULT 'Clay',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. CREATE BOOKINGS TABLE
+CREATE TABLE bookings (
+  id SERIAL PRIMARY KEY,
+  court_id INTEGER REFERENCES courts(id) ON DELETE RESTRICT,
+  member_id INTEGER REFERENCES members(id) ON DELETE CASCADE,
+  booking_date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  duration_minutes INTEGER NOT NULL CHECK (duration_minutes IN (30, 60, 90, 120)),
+  status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Ensure no double bookings for same court, date, and time
+  CONSTRAINT unique_court_datetime UNIQUE (court_id, booking_date, start_time)
+);
+
+-- 3. CREATE INDEXES FOR PERFORMANCE
+CREATE INDEX idx_bookings_court_date ON bookings(court_id, booking_date);
+CREATE INDEX idx_bookings_member ON bookings(member_id);
+CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_bookings_datetime ON bookings(booking_date, start_time);
+
+-- 4. CREATE TRIGGER FUNCTION FOR AUTO-UPDATING TIMESTAMPS
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- 5. CREATE TRIGGERS
+CREATE TRIGGER update_courts_updated_at 
+  BEFORE UPDATE ON courts 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_bookings_updated_at 
+  BEFORE UPDATE ON bookings 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 6. ENABLE ROW LEVEL SECURITY
+ALTER TABLE courts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+
+-- 7. CREATE RLS POLICIES
+
+-- Courts policies
+CREATE POLICY "Allow service role full access to courts" ON courts
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Allow authenticated users to read courts" ON courts
+  FOR SELECT USING (auth.jwt() IS NOT NULL);
+
+-- Bookings policies  
+CREATE POLICY "Allow service role full access to bookings" ON bookings
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Users can read own bookings" ON bookings
+  FOR SELECT USING (auth.uid()::text = member_id::text);
+
+CREATE POLICY "Users can create own bookings" ON bookings
+  FOR INSERT WITH CHECK (auth.uid()::text = member_id::text);
+
+CREATE POLICY "Users can update own bookings" ON bookings
+  FOR UPDATE USING (auth.uid()::text = member_id::text);
+
+-- 8. INSERT INITIAL COURT DATA
+INSERT INTO courts (name, surface_type, is_active) VALUES
+  ('Court 1', 'Clay', true),
+  ('Court 2', 'Clay', true),
+  ('Court 3', 'Clay', true),
+  ('Court 4', 'Clay', true),
+  ('Court 5', 'Clay', true);
+
+-- 9. CREATE A FUNCTION TO CHECK BOOKING CONFLICTS
+CREATE OR REPLACE FUNCTION check_booking_conflict(
+  p_court_id INTEGER,
+  p_booking_date DATE,
+  p_start_time TIME,
+  p_duration_minutes INTEGER,
+  p_exclude_booking_id INTEGER DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+DECLARE
+  p_end_time TIME;
+  conflict_count INTEGER;
+BEGIN
+  -- Calculate end time
+  p_end_time := p_start_time + (p_duration_minutes || ' minutes')::INTERVAL;
+  
+  -- Check for conflicts
+  SELECT COUNT(*) INTO conflict_count
+  FROM bookings
+  WHERE court_id = p_court_id
+    AND booking_date = p_booking_date
+    AND status IN ('confirmed', 'pending')
+    AND (id != p_exclude_booking_id OR p_exclude_booking_id IS NULL)
+    AND (
+      -- New booking starts during existing booking
+      (p_start_time >= start_time AND p_start_time < start_time + (duration_minutes || ' minutes')::INTERVAL)
+      OR
+      -- New booking ends during existing booking  
+      (p_end_time > start_time AND p_end_time <= start_time + (duration_minutes || ' minutes')::INTERVAL)
+      OR
+      -- New booking completely encompasses existing booking
+      (p_start_time <= start_time AND p_end_time >= start_time + (duration_minutes || ' minutes')::INTERVAL)
+    );
+    
+  RETURN conflict_count > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 10. CREATE A FUNCTION TO GET AVAILABLE SLOTS
+CREATE OR REPLACE FUNCTION get_available_slots(
+  p_court_id INTEGER,
+  p_booking_date DATE
+) RETURNS TABLE(
+  slot_time TIME,
+  is_available BOOLEAN,
+  booking_id INTEGER
+) AS $$
+DECLARE
+  slot_start TIME;
+  morning_slots TIME[] := ARRAY['06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30'];
+  evening_slots TIME[] := ARRAY['15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'];
+  all_slots TIME[];
+  slot_record RECORD;
+BEGIN
+  -- Combine morning and evening slots
+  all_slots := morning_slots || evening_slots;
+  
+  -- Check each slot
+  FOREACH slot_start IN ARRAY all_slots LOOP
+    SELECT b.id INTO slot_record
+    FROM bookings b
+    WHERE b.court_id = p_court_id
+      AND b.booking_date = p_booking_date
+      AND b.status IN ('confirmed', 'pending')
+      AND slot_start >= b.start_time
+      AND slot_start < b.start_time + (b.duration_minutes || ' minutes')::INTERVAL
+    LIMIT 1;
+    
+    slot_time := slot_start;
+    is_available := slot_record.id IS NULL;
+    booking_id := slot_record.id;
+    
+    RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 11. VERIFY SETUP
+SELECT 'Setup completed successfully!' as status;
+
+SELECT 'Courts created:' as info, COUNT(*) as count FROM courts;
+SELECT 'Courts data:' as info, name, surface_type, is_active FROM courts ORDER BY id;
+
+-- Test the conflict check function
+SELECT 'Testing conflict function...' as info;
+SELECT check_booking_conflict(1, CURRENT_DATE + 1, '14:00', 60) as should_be_false;
+
+-- Test available slots function
+SELECT 'Testing available slots function...' as info;
+SELECT slot_time, is_available FROM get_available_slots(1, CURRENT_DATE + 1) LIMIT 5;
+
+-- Create coachings table in Supabase
+CREATE TABLE coachings (
+  id SERIAL PRIMARY KEY,
+  group_name VARCHAR(100) NOT NULL UNIQUE,
+  coach_name VARCHAR(100) NOT NULL,
+  description TEXT,
+  max_participants INTEGER DEFAULT 10,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert sample coaching groups
+INSERT INTO coachings (group_name, coach_name, description, max_participants) VALUES
+('Beginners Group A', 'Coach Sarah Wilson', 'Basic tennis fundamentals for beginners', 8),
+('Intermediate Singles', 'Coach Mike Johnson', 'Advanced singles techniques and strategies', 6),
+('Advanced Tournament Prep', 'Coach David Chen', 'Competition preparation for tournament players', 4),
+('Youth Development', 'Coach Lisa Martinez', 'Tennis training for young players (8-14 years)', 10),
+('Senior Players Club', 'Coach Robert Taylor', 'Tennis coaching for players 50+', 8);
+
+-- Update the bookings table to add coaching_id and booking_type
+ALTER TABLE bookings ADD COLUMN coaching_id INTEGER REFERENCES coachings(id);
+ALTER TABLE bookings ADD COLUMN booking_type VARCHAR(20) DEFAULT 'member' CHECK (booking_type IN ('member', 'coaching'));
+
+-- Update the check_booking_conflict function to handle optional exclude parameter
+CREATE OR REPLACE FUNCTION check_booking_conflict(
+    p_court_id INTEGER,
+    p_booking_date DATE,
+    p_start_time TIME,
+    p_duration_minutes INTEGER,
+    p_exclude_booking_id INTEGER DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    conflict_count INTEGER;
+    end_time TIME;
+BEGIN
+    -- Calculate end time
+    end_time := p_start_time + (p_duration_minutes || ' minutes')::INTERVAL;
+    
+    -- Check for overlapping bookings
+    SELECT COUNT(*) INTO conflict_count
+    FROM bookings
+    WHERE court_id = p_court_id
+      AND booking_date = p_booking_date
+      AND status = 'confirmed'
+      AND (p_exclude_booking_id IS NULL OR id != p_exclude_booking_id)
+      AND (
+          -- New booking starts during existing booking
+          (p_start_time >= start_time AND p_start_time < start_time + (duration_minutes || ' minutes')::INTERVAL)
+          OR
+          -- New booking ends during existing booking
+          (end_time > start_time AND end_time <= start_time + (duration_minutes || ' minutes')::INTERVAL)
+          OR
+          -- New booking completely encompasses existing booking
+          (p_start_time <= start_time AND end_time >= start_time + (duration_minutes || ' minutes')::INTERVAL)
+      );
+    
+    RETURN conflict_count > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 1: Add new columns for recurring booking support
+ALTER TABLE bookings ADD COLUMN booking_frequency VARCHAR(20) DEFAULT 'temporary' CHECK (booking_frequency IN ('temporary', 'recurring'));
+ALTER TABLE bookings ADD COLUMN recurring_parent_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE;
+ALTER TABLE bookings ADD COLUMN expires_at TIMESTAMPTZ;
+
+-- Step 2: Create index for better performance
+CREATE INDEX idx_bookings_frequency ON bookings(booking_frequency);
+CREATE INDEX idx_bookings_recurring_parent ON bookings(recurring_parent_id);
+CREATE INDEX idx_bookings_expires_at ON bookings(expires_at);
+
+-- Step 3: Clear existing bookings and insert sample data
+DELETE FROM bookings;
+
+-- Insert sample recurring booking (parent)
+INSERT INTO bookings (court_id, member_id, booking_date, start_time, duration_minutes, status, booking_type, booking_frequency, notes) VALUES
+(1, 2, '2025-01-06', '07:00', 60, 'confirmed', 'member', 'recurring', 'Weekly tennis session - Mondays 7:00 AM');
+
+-- Insert sample temporary bookings
+INSERT INTO bookings (court_id, member_id, booking_date, start_time, duration_minutes, status, booking_type, booking_frequency, expires_at, notes) VALUES
+(2, 2, '2025-08-29', '16:00', 90, 'confirmed', 'member', 'temporary', NOW() + INTERVAL '7 days', 'One-time booking'),
+(3, 3, '2025-08-30', '18:00', 60, 'confirmed', 'member', 'temporary', NOW() + INTERVAL '7 days', 'Weekend game'),
+(1, NULL, '2025-08-31', '10:00', 120, 'confirmed', 'coaching', 'temporary', NOW() + INTERVAL '7 days', NULL);
+
+-- Update the coachings reference for the coaching booking
+UPDATE bookings SET coaching_id = 1 WHERE booking_type = 'coaching' AND member_id IS NULL;
+
+-- Step 4: Update the check_booking_conflict function to handle recurring bookings
+CREATE OR REPLACE FUNCTION check_booking_conflict(
+    p_court_id INTEGER,
+    p_booking_date DATE,
+    p_start_time TIME,
+    p_duration_minutes INTEGER,
+    p_exclude_booking_id INTEGER DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+    conflict_count INTEGER;
+    end_time TIME;
+BEGIN
+    -- Calculate end time
+    end_time := p_start_time + (p_duration_minutes || ' minutes')::INTERVAL;
+    
+    -- Check for overlapping bookings (including recurring ones)
+    SELECT COUNT(*) INTO conflict_count
+    FROM bookings
+    WHERE court_id = p_court_id
+      AND booking_date = p_booking_date
+      AND status = 'confirmed'
+      AND (p_exclude_booking_id IS NULL OR id != p_exclude_booking_id)
+      AND (expires_at IS NULL OR expires_at > NOW()) -- Only active bookings
+      AND (
+          -- New booking starts during existing booking
+          (p_start_time >= start_time AND p_start_time < start_time + (duration_minutes || ' minutes')::INTERVAL)
+          OR
+          -- New booking ends during existing booking
+          (end_time > start_time AND end_time <= start_time + (duration_minutes || ' minutes')::INTERVAL)
+          OR
+          -- New booking completely encompasses existing booking
+          (p_start_time <= start_time AND end_time >= start_time + (duration_minutes || ' minutes')::INTERVAL)
+      );
+    
+    RETURN conflict_count > 0;
+END;
+$$ LANGUAGE plpgsql;

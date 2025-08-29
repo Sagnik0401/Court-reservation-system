@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Login Portal</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(45deg, #0a0a23, #1a1a3e, #2d1b69, #1e3c72);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Floating particles background */
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 3rem 2.5rem;
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 0 100px rgba(106, 90, 205, 0.2);
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            z-index: 10;
+            transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
+            animation: containerEntrance 1s ease-out;
+        }
+
+        @keyframes containerEntrance {
+            0% {
+                opacity: 0;
+                transform: perspective(1000px) rotateX(15deg) translateY(50px) scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateY(0) scale(1);
+            }
+        }
+
+        .login-container:hover {
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-10px);
+            box-shadow: 
+                0 35px 70px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                0 0 120px rgba(106, 90, 205, 0.3);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+            border-radius: 2px;
+            animation: headerGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes headerGlow {
+            0% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.5); }
+            100% { box-shadow: 0 0 25px rgba(118, 75, 162, 0.8), 0 0 40px rgba(240, 147, 251, 0.4); }
+        }
+
+        .login-header h1 {
+            color: #ffffff;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            animation: titleSlide 0.8s ease-out 0.3s both;
+        }
+
+        @keyframes titleSlide {
+            0% {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            font-weight: 300;
+            animation: subtitleSlide 0.8s ease-out 0.5s both;
+        }
+
+        @keyframes subtitleSlide {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+            position: relative;
+            animation: formSlide 0.6s ease-out both;
+        }
+
+        .form-group:nth-child(2) { animation-delay: 0.7s; }
+        .form-group:nth-child(3) { animation-delay: 0.9s; }
+
+        @keyframes formSlide {
+            0% {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.8rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .input-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+            z-index: 1;
+        }
+
+        .form-group input:focus + .input-wrapper::before {
+            left: 100%;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 400;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 2;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: rgba(102, 126, 234, 0.8);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 
+                0 0 0 4px rgba(102, 126, 234, 0.1),
+                inset 0 0 20px rgba(102, 126, 234, 0.05),
+                0 8px 25px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .form-group.error input {
+            border-color: #ff6b6b;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.2);
+            animation: inputShake 0.5s ease-in-out;
+        }
+
+        @keyframes inputShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+            animation: errorFade 0.3s ease-in;
+        }
+
+        @keyframes errorFade {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group.error .error-message {
+            display: block;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background-size: 200% 100%;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            animation: buttonSlide 0.6s ease-out 1.1s both;
+        }
+
+        @keyframes buttonSlide {
+            0% {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .login-button:hover {
+            background-position: 100% 0;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-button:hover::before {
+            left: 100%;
+        }
+
+        .login-button:active {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-button.loading {
+            pointer-events: none;
+        }
+
+        .button-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .login-button.loading .loading-spinner {
+            display: block;
+        }
+
+        .forgot-password {
+            text-align: center;
+            animation: linkSlide 0.6s ease-out 1.3s both;
+        }
+
+        @keyframes linkSlide {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .forgot-password a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 400;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .forgot-password a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .forgot-password a:hover {
+            color: #ffffff;
+        }
+
+        .forgot-password a:hover::after {
+            width: 100%;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.1));
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #28a745;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: none;
+            animation: messageSlide 0.5s ease-out;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes messageSlide {
+            0% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* 3D Floating elements */
+        .floating-element {
+            position: absolute;
+            background: linear-gradient(45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 50%;
+            animation: float3d 20s infinite linear;
+            z-index: 2;
+        }
+
+        .floating-element:nth-child(1) {
+            width: 60px;
+            height: 60px;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .floating-element:nth-child(2) {
+            width: 40px;
+            height: 40px;
+            top: 70%;
+            right: 15%;
+            animation-delay: -5s;
+        }
+
+        .floating-element:nth-child(3) {
+            width: 80px;
+            height: 80px;
+            bottom: 20%;
+            left: 5%;
+            animation-delay: -10s;
+        }
+
+        @keyframes float3d {
+            0% {
+                transform: translateZ(0) rotateX(0deg) rotateY(0deg);
+            }
+            33% {
+                transform: translateZ(50px) rotateX(120deg) rotateY(120deg);
+            }
+            66% {
+                transform: translateZ(-30px) rotateX(240deg) rotateY(240deg);
+            }
+            100% {
+                transform: translateZ(0) rotateX(360deg) rotateY(360deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 1rem;
+                padding: 2rem 1.5rem;
+                transform: none;
+            }
+
+            .login-container:hover {
+                transform: translateY(-5px);
+            }
+
+            .login-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    
+    <div class="floating-element"></div>
+    <div class="floating-element"></div>
+    <div class="floating-element"></div>
+
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Welcome Back</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="success-message" id="successMessage">
+                ✓ Login successful! Redirecting...
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <div class="input-wrapper">
+                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                </div>
+                <div class="error-message">Please enter a valid email address</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                <div class="error-message">Password must be at least 8 characters long</div>
+            </div>
+
+            <button type="submit" class="login-button" id="loginBtn">
+                <div class="loading-spinner"></div>
+                <span class="button-content">Sign In</span>
+            </button>
+
+            <div class="forgot-password">
+                <a href="#" onclick="handleForgotPassword()">Forgot your password?</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.querySelector('.particles');
+            if (!particlesContainer) return;
+    
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Email validation function
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Show error for form group
+        function showError(inputId, message) {
+            const formGroup = document.getElementById(inputId).closest('.form-group');
+            formGroup.classList.add('error');
+            const errorMsg = formGroup.querySelector('.error-message');
+            if (errorMsg) {
+                errorMsg.textContent = message;
+            }
+        }
+
+        // Clear error for form group
+        function clearError(inputId) {
+            const formGroup = document.getElementById(inputId).closest('.form-group');
+            formGroup.classList.remove('error');
+        }
+
+        // Clear all errors
+        function clearAllErrors() {
+            document.querySelectorAll('.form-group').forEach(group => {
+                group.classList.remove('error');
+            });
+        }
+
+        // Show success message
+        function showSuccess() {
+            const successMessage = document.getElementById('successMessage');
+            successMessage.classList.add('show');
+        }
+
+        // Form submission handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    console.log('🚀 Form submitted!');
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const loginBtn = document.getElementById('loginBtn');
+    const buttonContent = loginBtn.querySelector('.button-content');
+    const loadingSpinner = loginBtn.querySelector('.loading-spinner');
+    
+    // Clear previous errors
+    clearAllErrors();
+    
+    // Validate email format
+    if (!isValidEmail(email)) {
+        showError('email', 'Please enter a valid email address');
+        return;
+    }
+
+    // Validate password
+    if (!password || password.length < 1) {
+        showError('password', 'Password is required');
+        return;
+    }
+    
+    console.log('📧 Attempting login with email:', email);
+    
+    // Show loading state
+    loginBtn.classList.add('loading');
+    loginBtn.disabled = true;
+    buttonContent.textContent = 'Signing In...';
+    loadingSpinner.style.display = 'block';
+    
+    try {
+        // Use relative URL to work with your server setup
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password })
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('✅ Response ok:', response.ok);
+        
+        const data = await response.json();
+        console.log('📦 Response data:', data);
+        
+        if (response.ok && data.success) {
+            console.log('🎯 Login successful!');
+            console.log('👤 User data:', data.user);
+            
+            // Show success message
+            showSuccess();
+            buttonContent.textContent = 'Success!';
+            
+            // Store user data for dashboard use
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Role-based redirection
+            const userRole = data.user.role || 'client';
+            let redirectUrl;
+            
+            if (userRole === 'admin') {
+                redirectUrl = '/admin-dashboard.html';
+                console.log('🔄 Redirecting admin to admin dashboard');
+            } else {
+                redirectUrl = '/dashboard.html';
+                console.log('🔄 Redirecting client to regular dashboard');
+            }
+            
+            // Redirect after showing success message
+            setTimeout(() => {
+                console.log(`🔄 Executing redirect to ${redirectUrl}`);
+                window.location.href = redirectUrl;
+            }, 1500);
+            
+        } else {
+            throw new Error(data.message || data.error || 'Login failed');
+        }
+        
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        
+        // Show specific error based on response
+        if (error.message.includes('User not found')) {
+            showError('email', 'Email address not found');
+        } else if (error.message.includes('Invalid password')) {
+            showError('password', 'Invalid password');
+        } else {
+            showError('email', `Login failed: ${error.message}`);
+        }
+        
+        // Reset button state
+        loginBtn.classList.remove('loading');
+        loginBtn.disabled = false;
+        buttonContent.textContent = 'Sign In';
+        loadingSpinner.style.display = 'none';
+    }
+});
+
+        // Forgot password handler
+        function handleForgotPassword() {
+            alert('Forgot password functionality would redirect to password reset page');
+            // In real implementation: window.location.href = '/forgot-password';
+        }
+
+        // Test functions for debugging
+        async function testServer() {
+            try {
+                console.log('🔍 Testing server connection...');
+                const response = await fetch('/api/test');
+                const data = await response.json();
+                console.log('✅ Server test result:', data);
+                return data;
+            } catch (error) {
+                console.error('❌ Server test failed:', error);
+                return null;
+            }
+        }
+
+        function testRedirect() {
+            console.log('🧪 Testing redirect...');
+            window.location.href = '/dashboard.html';
+        }
+
+        // Add input focus effects and clear errors on input
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+                clearError(this.id);
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
+
+            input.addEventListener('input', function() {
+                clearError(this.id);
+            });
+        });
+
+        // Initialize particles and test server on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎨 Page loaded, creating particles...');
+            createParticles();
+            
+            // Auto-test server connection
+            testServer();
+        });
+
+        // Add mouse movement parallax effect
+        document.addEventListener('mousemove', function(e) {
+            const container = document.querySelector('.login-container');
+            if (!container) return;
+            
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+            
+            const rotateX = (y / rect.height) * -10;
+            const rotateY = (x / rect.width) * 10;
+            
+            container.style.transform = `perspective(1000px) rotateX(${2 + rotateX}deg) rotateY(${-2 + rotateY}deg)`;
+        });
+
+        // Reset transform when mouse leaves
+        document.addEventListener('mouseleave', function() {
+            const container = document.querySelector('.login-container');
+            if (!container) return;
+            container.style.transform = 'perspective(1000px) rotateX(2deg) rotateY(-2deg)';
+        });
+    </script>
+</body>
+</html>

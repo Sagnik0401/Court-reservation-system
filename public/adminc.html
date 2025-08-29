@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Reservations - Tennis Court Admin</title>
+    <link rel="stylesheet" href="adminc.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="header-content">
+                <h1><i class="fas fa-calendar-plus"></i> Create Reservations</h1>
+                <div class="header-actions">
+                    <span id="current-time"></span>
+                    <button onclick="location.href='admin-dashboard.html'" class="btn btn-secondary">Back to Dashboard</button>
+                    <button onclick="location.href='login.html'" class="btn btn-danger">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="temporary">Temporary</button>
+            <button class="tab-btn" data-tab="recurring">Recurring</button>
+            <button class="tab-btn" data-tab="coaching">Coaching</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="tab-content">
+            <!-- Temporary Tab -->
+            <div id="temporary-tab" class="tab-panel active">
+                <div class="panel-header">
+                    <h2>Create Temporary Reservation</h2>
+                    <p class="text-muted">Book courts for members or coaching sessions</p>
+                </div>
+
+                <!-- Booking Type Selector -->
+                <div class="booking-type-selector">
+                    <div class="type-switch">
+                        <input type="radio" id="member-type" name="booking-type" value="member" checked>
+                        <label for="member-type" class="type-label">
+                            <i class="fas fa-user"></i> Member Booking
+                        </label>
+                        
+                        <input type="radio" id="coaching-type" name="booking-type" value="coaching">
+                        <label for="coaching-type" class="type-label">
+                            <i class="fas fa-graduation-cap"></i> Coaching Session
+                        </label>
+                    </div>
+                </div>
+
+                <form id="admin-booking-form" class="booking-form">
+                    <!-- Member/Coaching Selection -->
+                    <div class="form-section">
+                        <div id="member-selection" class="selection-group active">
+                            <label for="member-search">Select Member:</label>
+                            <div class="search-container">
+                                <input type="text" id="member-search" placeholder="Search by name or membership ID..." class="search-input">
+                                <div id="member-dropdown" class="dropdown-results"></div>
+                            </div>
+                            <div id="selected-member" class="selected-item"></div>
+                        </div>
+
+                        <div id="coaching-selection" class="selection-group">
+                            <label for="coaching-search">Select Coaching Group:</label>
+                            <div class="search-container">
+                                <input type="text" id="coaching-search" placeholder="Search coaching groups..." class="search-input">
+                                <div id="coaching-dropdown" class="dropdown-results"></div>
+                            </div>
+                            <div id="selected-coaching" class="selected-item"></div>
+                        </div>
+                    </div>
+
+                    <!-- Court and Date Selection -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="admin-court-select">Select Court:</label>
+                                <select id="admin-court-select" class="form-control" required>
+                                    <option value="">Choose a court...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-booking-date">Date:</label>
+                                <input type="date" id="admin-booking-date" class="form-control" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Slots Selection -->
+                    <div class="form-section">
+                        <div id="time-slots-container">
+                            <h3>Available Time Slots</h3>
+                            <p class="text-muted">Select court and date to view available slots</p>
+                            <div id="admin-slots-grid" class="slots-grid"></div>
+                            
+                            <div id="selected-slots-info" class="selected-slots-info" style="display: none;">
+                                <h4>Selected Slots:</h4>
+                                <div id="selected-slots-list" class="slots-list"></div>
+                                <div class="slot-summary">
+                                    <strong>Total Duration: <span id="total-duration">0</span> minutes</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes Section -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label for="admin-booking-notes">Notes (Optional):</label>
+                            <textarea id="admin-booking-notes" class="form-control" rows="3" placeholder="Add any special notes or requirements..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="form-section">
+                        <button type="submit" id="create-reservation-btn" class="btn btn-success btn-large" disabled>
+                            <i class="fas fa-calendar-plus"></i> Create Reservation
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Recurring Tab -->
+<div id="recurring-tab" class="tab-panel">
+    <div class="panel-header">
+        <h2>Recurring Reservations</h2>
+        <p class="text-muted">Create recurring bookings for members and coaching groups</p>
+    </div>
+
+    <div class="recurring-content">
+        <!-- Booking Type Selector -->
+        <div class="booking-type-selector">
+            <div class="type-switch">
+                <input type="radio" id="recurring-member-type" name="recurring-booking-type" value="member" checked>
+                <label for="recurring-member-type" class="type-label">
+                    <i class="fas fa-user"></i> Member Recurring
+                </label>
+                
+                <input type="radio" id="recurring-coaching-type" name="recurring-booking-type" value="coaching">
+                <label for="recurring-coaching-type" class="type-label">
+                    <i class="fas fa-graduation-cap"></i> Coaching Recurring
+                </label>
+            </div>
+        </div>
+
+        <!-- Create Recurring Form -->
+        <form id="recurring-booking-form" class="booking-form">
+            <!-- Member/Coaching Selection -->
+            <div class="form-section">
+                <div id="recurring-member-selection" class="selection-group active">
+                    <label for="recurring-member-search">Select Member:</label>
+                    <div class="search-container">
+                        <input type="text" id="recurring-member-search" placeholder="Search by name or membership ID..." class="search-input">
+                        <div id="recurring-member-dropdown" class="dropdown-results"></div>
+                    </div>
+                    <div id="recurring-selected-member" class="selected-item"></div>
+                </div>
+
+                <div id="recurring-coaching-selection" class="selection-group">
+                    <label for="recurring-coaching-search">Select Coaching Group:</label>
+                    <div class="search-container">
+                        <input type="text" id="recurring-coaching-search" placeholder="Search coaching groups..." class="search-input">
+                        <div id="recurring-coaching-dropdown" class="dropdown-results"></div>
+                    </div>
+                    <div id="recurring-selected-coaching" class="selected-item"></div>
+                </div>
+            </div>
+
+            <!-- Court and Time Selection -->
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="recurring-court-select">Select Court:</label>
+                        <select id="recurring-court-select" class="form-control" required>
+                            <option value="">Choose a court...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="recurring-start-date">Start Date:</label>
+                        <input type="date" id="recurring-start-date" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Slots Selection -->
+            <div class="form-section">
+                <div id="recurring-time-slots-container">
+                    <h3>Select Time Slot</h3>
+                    <p class="text-muted">Choose the time slot for recurring bookings</p>
+                    <div id="recurring-slots-grid" class="slots-grid"></div>
+                </div>
+            </div>
+
+            <!-- Expiry Settings -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="recurring-expiry-type">Recurring Expiry:</label>
+                    <select id="recurring-expiry-type" class="form-control">
+                        <option value="never">Never Expires</option>
+                        <option value="3months">3 Months</option>
+                        <option value="6months">6 Months</option>
+                        <option value="1year">1 Year</option>
+                        <option value="custom">Custom Date</option>
+                    </select>
+                </div>
+                <div id="custom-expiry-container" class="form-group" style="display: none;">
+                    <label for="custom-expiry-date">Custom Expiry Date:</label>
+                    <input type="date" id="custom-expiry-date" class="form-control">
+                </div>
+            </div>
+
+            <!-- Notes Section -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="recurring-booking-notes">Notes (Optional):</label>
+                    <textarea id="recurring-booking-notes" class="form-control" rows="3" placeholder="Add any special notes..."></textarea>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-section">
+                <button type="submit" id="create-recurring-btn" class="btn btn-success btn-large" disabled>
+                    <i class="fas fa-calendar-plus"></i> Create Recurring Reservation
+                </button>
+            </div>
+        </form>
+
+        <!-- Existing Recurring Schedules -->
+        <div class="form-section">
+            <h3>Existing Recurring Schedules</h3>
+            <div id="recurring-schedules-list"></div>
+        </div>
+    </div>
+</div>
+
+            <!-- Coaching Tab -->
+            <!-- Replace the coaching tab content in your HTML file -->
+<!-- Coaching Tab -->
+<div id="coaching-tab" class="tab-panel">
+    <div class="panel-header">
+        <h2>Coaching Management</h2>
+        <p class="text-muted">Manage coaching groups and sessions</p>
+        <button id="add-coaching-btn" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Coaching Group
+        </button>
+    </div>
+
+    <div class="coaching-content">
+        <div id="coaching-list" class="coaching-list">
+            <!-- Coaching groups will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Add Coaching Modal -->
+<div id="coaching-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="coaching-modal-title">Add Coaching Group</h3>
+            <span class="close" id="close-coaching-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="coaching-form">
+                <input type="hidden" id="coaching-id">
+                
+                <div class="form-group">
+                    <label for="group-name">Group Name *</label>
+                    <input type="text" id="group-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="coach-name">Coach Name *</label>
+                    <input type="text" id="coach-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="group-description">Description</label>
+                    <textarea id="group-description" class="form-control" rows="3" placeholder="Optional - describe the coaching group objectives..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max-participants">Max Participants</label>
+                    <input type="number" id="max-participants" class="form-control" min="1" max="20" value="10">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-coaching-btn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="save-coaching-btn" class="btn btn-success">
+                        <i class="fas fa-save"></i> Save Group
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Creating reservation...</p>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="adminc.js"></script>
+</body>
+</html>
