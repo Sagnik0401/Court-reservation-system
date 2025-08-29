@@ -157,7 +157,8 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Get all bookings (Admin only) - UPDATED for recurring support
+// Get all bookings (Admin only)
+// Get all bookings (Admin only)
 app.post('/api/bookings/all', async (req, res) => {
   try {
     const { data: bookings, error } = await supabase
@@ -174,7 +175,7 @@ app.post('/api/bookings/all', async (req, res) => {
     if (error) throw error;
 
     const formattedBookings = bookings
-      .filter(booking => booking.courts && (booking.members || booking.coachings))
+      .filter(booking => booking.courts && (booking.members || booking.coachings)) // Filter out invalid records
       .map(booking => {
         const startTime = booking.start_time;
         const [hours, minutes] = startTime.split(':');
@@ -184,6 +185,7 @@ app.post('/api/bookings/all', async (req, res) => {
         const endMins = endMinutes % 60;
         const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
 
+        // Handle both member bookings and coaching bookings
         let memberName = 'Unknown Member';
         let membershipId = 'N/A';
         
@@ -209,10 +211,7 @@ app.post('/api/bookings/all', async (req, res) => {
           status: booking.status,
           notes: booking.notes,
           createdAt: booking.created_at,
-          bookingType: booking.booking_type || 'member',
-          bookingFrequency: booking.booking_frequency,
-          expiresAt: booking.expires_at,
-          recurringParentId: booking.recurring_parent_id
+          bookingType: booking.booking_type || 'member'
         };
       });
 
@@ -313,50 +312,6 @@ app.delete('/api/members/:memberId', async (req, res) => {
 // EXISTING CLIENT ENDPOINTS
 // =========================
 
-// Get recurring bookings for a specific user
-app.get('/api/bookings/recurring/:userId', async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const { data: recurringBookings, error } = await supabase
-      .from('bookings')
-      .select(`
-        *,
-        courts (name, surface_type)
-      `)
-      .eq('member_id', parseInt(userId))
-      .eq('booking_frequency', 'recurring')
-      .is('recurring_parent_id', null)
-      .order('booking_date')
-      .order('start_time');
-
-    if (error) throw error;
-
-    const formattedBookings = recurringBookings.map(booking => ({
-      id: booking.id,
-      courtId: booking.court_id,
-      courtName: booking.courts.name,
-      dayOfWeek: new Date(booking.booking_date).toLocaleDateString('en-US', { weekday: 'long' }),
-      startTime: booking.start_time,
-      duration: booking.duration_minutes,
-      status: booking.status,
-      notes: booking.notes,
-      createdAt: booking.created_at
-    }));
-
-    res.json({
-      success: true,
-      recurringBookings: formattedBookings
-    });
-  } catch (error) {
-    console.error('❌ Error getting recurring bookings:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
 // Get all courts
 app.get('/api/courts', async (req, res) => {
   try {
@@ -447,7 +402,6 @@ app.post('/api/bookings', async (req, res) => {
 });
 
 // Get bookings for a specific user
-// Get bookings for a specific user - UPDATED for recurring support
 app.get('/api/bookings/user/:userId', async (req, res) => {
   const { userId } = req.params;
 
@@ -459,7 +413,6 @@ app.get('/api/bookings/user/:userId', async (req, res) => {
         courts (name, surface_type)
       `)
       .eq('member_id', parseInt(userId))
-      .or('booking_frequency.eq.temporary,and(booking_frequency.eq.recurring,recurring_parent_id.is.null)')
       .order('booking_date', { ascending: false })
       .order('start_time', { ascending: false });
 
@@ -474,10 +427,7 @@ app.get('/api/bookings/user/:userId', async (req, res) => {
       duration: booking.duration_minutes,
       status: booking.status,
       notes: booking.notes,
-      createdAt: booking.created_at,
-      bookingFrequency: booking.booking_frequency,
-      expiresAt: booking.expires_at,
-      recurringParentId: booking.recurring_parent_id
+      createdAt: booking.created_at
     }));
 
     res.json({
@@ -1097,14 +1047,13 @@ app.get('/api/coachings', async (req, res) => {
 });
 
 // Create admin booking
-// Create admin booking - Updated for recurring support
 app.post('/api/admin/bookings', async (req, res) => {
-  const { courtId, date, startTime, duration, notes, bookingType, userId, coachingId, bookingFrequency, expiryType, customExpiryDate } = req.body;
+  const { courtId, date, startTime, duration, notes, bookingType, userId, coachingId } = req.body;
 
-  if (!courtId || !date || !startTime || !duration || !bookingType || !bookingFrequency) {
+  if (!courtId || !date || !startTime || !duration || !bookingType) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Court, date, start time, duration, booking type, and booking frequency are required' 
+      message: 'Court, date, start time, duration, and booking type are required' 
     });
   }
 
@@ -1141,35 +1090,7 @@ app.post('/api/admin/bookings', async (req, res) => {
       });
     }
 
-    // Calculate expiry date for recurring bookings
-    let expiresAt = null;
-    if (bookingFrequency === 'recurring') {
-      if (expiryType && expiryType !== 'never') {
-        const startDate = new Date(date);
-        switch (expiryType) {
-          case '3months':
-            expiresAt = new Date(startDate.setMonth(startDate.getMonth() + 3));
-            break;
-          case '6months':
-            expiresAt = new Date(startDate.setMonth(startDate.getMonth() + 6));
-            break;
-          case '1year':
-            expiresAt = new Date(startDate.setFullYear(startDate.getFullYear() + 1));
-            break;
-          case 'custom':
-            if (customExpiryDate) {
-              expiresAt = new Date(customExpiryDate);
-            }
-            break;
-        }
-      }
-    } else {
-      // Temporary bookings expire after 7 days by default
-      expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-    }
-
-    // Create booking data
+    // Create booking
     const bookingData = {
       court_id: parseInt(courtId),
       booking_date: date,
@@ -1177,9 +1098,7 @@ app.post('/api/admin/bookings', async (req, res) => {
       duration_minutes: parseInt(duration),
       status: 'confirmed',
       notes: notes || null,
-      booking_type: bookingType,
-      booking_frequency: bookingFrequency,
-      expires_at: expiresAt
+      booking_type: bookingType
     };
 
     if (bookingType === 'member') {
@@ -1201,7 +1120,7 @@ app.post('/api/admin/bookings', async (req, res) => {
 
     if (bookingError) throw bookingError;
 
-    console.log(`✅ Admin ${bookingFrequency} booking created:`, booking.id);
+    console.log('✅ Admin booking created:', booking.id);
 
     let entityName = '';
     if (bookingType === 'member') {
@@ -1210,13 +1129,9 @@ app.post('/api/admin/bookings', async (req, res) => {
       entityName = booking.coachings.group_name;
     }
 
-    const message = bookingFrequency === 'recurring' ? 
-      'Recurring reservation created successfully!' : 
-      'Reservation created successfully!';
-
     res.json({
       success: true,
-      message: message,
+      message: 'Reservation created successfully!',
       booking: {
         id: booking.id,
         courtId: booking.court_id,
@@ -1226,10 +1141,8 @@ app.post('/api/admin/bookings', async (req, res) => {
         duration: booking.duration_minutes,
         status: booking.status,
         bookingType: booking.booking_type,
-        bookingFrequency: booking.booking_frequency,
         entityName: entityName,
         notes: booking.notes,
-        expiresAt: booking.expires_at,
         createdAt: booking.created_at
       }
     });
@@ -1241,6 +1154,7 @@ app.post('/api/admin/bookings', async (req, res) => {
     });
   }
 });
+
 // Add these endpoints to your server.js file
 
 // Get all coaching groups including inactive (Admin only)
@@ -1499,7 +1413,7 @@ app.delete('/api/coachings/:coachingId', async (req, res) => {
 
 // Static file routes
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/dashboard.html', (req, res) => {

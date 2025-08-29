@@ -125,117 +125,17 @@
             </div>
 
             <!-- Recurring Tab -->
-<div id="recurring-tab" class="tab-panel">
-    <div class="panel-header">
-        <h2>Recurring Reservations</h2>
-        <p class="text-muted">Create recurring bookings for members and coaching groups</p>
-    </div>
-
-    <div class="recurring-content">
-        <!-- Booking Type Selector -->
-        <div class="booking-type-selector">
-            <div class="type-switch">
-                <input type="radio" id="recurring-member-type" name="recurring-booking-type" value="member" checked>
-                <label for="recurring-member-type" class="type-label">
-                    <i class="fas fa-user"></i> Member Recurring
-                </label>
-                
-                <input type="radio" id="recurring-coaching-type" name="recurring-booking-type" value="coaching">
-                <label for="recurring-coaching-type" class="type-label">
-                    <i class="fas fa-graduation-cap"></i> Coaching Recurring
-                </label>
-            </div>
-        </div>
-
-        <!-- Create Recurring Form -->
-        <form id="recurring-booking-form" class="booking-form">
-            <!-- Member/Coaching Selection -->
-            <div class="form-section">
-                <div id="recurring-member-selection" class="selection-group active">
-                    <label for="recurring-member-search">Select Member:</label>
-                    <div class="search-container">
-                        <input type="text" id="recurring-member-search" placeholder="Search by name or membership ID..." class="search-input">
-                        <div id="recurring-member-dropdown" class="dropdown-results"></div>
-                    </div>
-                    <div id="recurring-selected-member" class="selected-item"></div>
+            <div id="recurring-tab" class="tab-panel">
+                <div class="panel-header">
+                    <h2>Recurring Reservations</h2>
+                    <p class="text-muted">Set up recurring bookings (Coming Soon)</p>
                 </div>
-
-                <div id="recurring-coaching-selection" class="selection-group">
-                    <label for="recurring-coaching-search">Select Coaching Group:</label>
-                    <div class="search-container">
-                        <input type="text" id="recurring-coaching-search" placeholder="Search coaching groups..." class="search-input">
-                        <div id="recurring-coaching-dropdown" class="dropdown-results"></div>
-                    </div>
-                    <div id="recurring-selected-coaching" class="selected-item"></div>
+                <div class="coming-soon">
+                    <i class="fas fa-tools"></i>
+                    <h3>Feature Under Development</h3>
+                    <p>Recurring reservations functionality will be available soon.</p>
                 </div>
             </div>
-
-            <!-- Court and Time Selection -->
-            <div class="form-section">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="recurring-court-select">Select Court:</label>
-                        <select id="recurring-court-select" class="form-control" required>
-                            <option value="">Choose a court...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="recurring-start-date">Start Date:</label>
-                        <input type="date" id="recurring-start-date" class="form-control" required>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Time Slots Selection -->
-            <div class="form-section">
-                <div id="recurring-time-slots-container">
-                    <h3>Select Time Slot</h3>
-                    <p class="text-muted">Choose the time slot for recurring bookings</p>
-                    <div id="recurring-slots-grid" class="slots-grid"></div>
-                </div>
-            </div>
-
-            <!-- Expiry Settings -->
-            <div class="form-section">
-                <div class="form-group">
-                    <label for="recurring-expiry-type">Recurring Expiry:</label>
-                    <select id="recurring-expiry-type" class="form-control">
-                        <option value="never">Never Expires</option>
-                        <option value="3months">3 Months</option>
-                        <option value="6months">6 Months</option>
-                        <option value="1year">1 Year</option>
-                        <option value="custom">Custom Date</option>
-                    </select>
-                </div>
-                <div id="custom-expiry-container" class="form-group" style="display: none;">
-                    <label for="custom-expiry-date">Custom Expiry Date:</label>
-                    <input type="date" id="custom-expiry-date" class="form-control">
-                </div>
-            </div>
-
-            <!-- Notes Section -->
-            <div class="form-section">
-                <div class="form-group">
-                    <label for="recurring-booking-notes">Notes (Optional):</label>
-                    <textarea id="recurring-booking-notes" class="form-control" rows="3" placeholder="Add any special notes..."></textarea>
-                </div>
-            </div>
-
-            <!-- Submit Button -->
-            <div class="form-section">
-                <button type="submit" id="create-recurring-btn" class="btn btn-success btn-large" disabled>
-                    <i class="fas fa-calendar-plus"></i> Create Recurring Reservation
-                </button>
-            </div>
-        </form>
-
-        <!-- Existing Recurring Schedules -->
-        <div class="form-section">
-            <h3>Existing Recurring Schedules</h3>
-            <div id="recurring-schedules-list"></div>
-        </div>
-    </div>
-</div>
 
             <!-- Coaching Tab -->
             <!-- Replace the coaching tab content in your HTML file -->

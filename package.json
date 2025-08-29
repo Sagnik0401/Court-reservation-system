@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/package.json",
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "tennis-court-system",
   "version": "1.0.0",
   "description": "Tennis Court Reservation System",

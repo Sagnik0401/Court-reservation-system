@@ -1,24 +1,18 @@
 // Admin Create Reservations System
 class AdminCreateReservations {
-
-constructor() {
-    this.members = [];
-    this.coachings = [];
-    this.courts = [];
-    this.selectedSlots = [];
-    this.selectedMember = null;
-    this.selectedCoaching = null;
-    this.bookingType = 'member';
-    this.availability = [];
-    this.recurringSettings = {
-        selectedDays: [],
-        expiryType: 'never',
-        customExpiryDate: null
-    };
-    
-    this.init();
-    this.coachingManager = new CoachingManager(this);
-}
+    constructor() {
+        this.members = [];
+        this.coachings = [];
+        this.courts = [];
+        this.selectedSlots = [];
+        this.selectedMember = null;
+        this.selectedCoaching = null;
+        this.bookingType = 'member';
+        this.availability = [];
+        
+        this.init();
+        this.coachingManager = new CoachingManager(this);
+    }
 
     init() {
         console.log('🎾 Initializing Admin Create Reservations...');
@@ -137,8 +131,6 @@ constructor() {
         if (form) {
             form.addEventListener('submit', (e) => this.handleFormSubmit(e));
         }
-        
-        this.initializeRecurringTab();
 
         // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
@@ -147,47 +139,6 @@ constructor() {
             }
         });
     }
-
-    async loadCoachingSchedules(coachingId) {
-    try {
-        const response = await fetch(`/api/admin/coaching-schedules/${coachingId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            return data.schedules;
-        }
-        return [];
-    } catch (error) {
-        console.error('Error loading coaching schedules:', error);
-        return [];
-    }
-}
-
-    initializeRecurringTab() {
-    // Set up recurring tab event listeners
-    const expirySelect = document.getElementById('recurring-expiry-type');
-    const customDateContainer = document.getElementById('custom-expiry-container');
-    const customDateInput = document.getElementById('custom-expiry-date');
-    
-    if (expirySelect) {
-        expirySelect.addEventListener('change', (e) => {
-            const isCustom = e.target.value === 'custom';
-            customDateContainer.style.display = isCustom ? 'block' : 'none';
-            this.recurringSettings.expiryType = e.target.value;
-            
-            if (!isCustom) {
-                this.recurringSettings.customExpiryDate = null;
-                if (customDateInput) customDateInput.value = '';
-            }
-        });
-    }
-    
-    if (customDateInput) {
-        customDateInput.addEventListener('change', (e) => {
-            this.recurringSettings.customExpiryDate = e.target.value;
-        });
-    }
-}
 
     switchTab(tabName) {
     // Update tab buttons
@@ -202,117 +153,10 @@ constructor() {
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
     
-    // Initialize tab-specific functionality
+    // Load coaching data when coaching tab is selected
     if (tabName === 'coaching') {
         this.coachingManager.loadCoachingsForTab();
-    } else if (tabName === 'recurring') {
-        this.initializeRecurringTab();
-        this.loadRecurringSchedules();
     }
-    
-    // Reset form when switching tabs
-    this.resetForm();
-}
-
-   async loadRecurringSchedules() {
-    // Load existing recurring schedules for display
-    try {
-        const response = await fetch('/api/admin/recurring-schedules');
-        const data = await response.json();
-        
-        if (data.success) {
-            this.displayRecurringSchedules(data.schedules);
-        }
-    } catch (error) {
-        console.error('Error loading recurring schedules:', error);
-    }
-} 
-
-    displayRecurringSchedules(schedules) {
-    const container = document.getElementById('recurring-schedules-list');
-    if (!container) return;
-
-    if (schedules.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-calendar-alt"></i>
-                <h3>No Recurring Schedules</h3>
-                <p>Create your first recurring booking schedule</p>
-            </div>
-        `;
-        return;
-    }
-
-    // Group schedules by member/coaching group
-    const grouped = schedules.reduce((acc, schedule) => {
-        const key = schedule.bookingType === 'member' ? 
-            `member-${schedule.memberId}` : 
-            `coaching-${schedule.coachingId}`;
-        
-        if (!acc[key]) {
-            acc[key] = {
-                type: schedule.bookingType,
-                name: schedule.entityName,
-                schedules: []
-            };
-        }
-        acc[key].schedules.push(schedule);
-        return acc;
-    }, {});
-
-    container.innerHTML = Object.values(grouped).map(group => `
-        <div class="recurring-schedule-card">
-            <div class="schedule-header">
-                <h4>
-                    <i class="fas ${group.type === 'member' ? 'fa-user' : 'fa-graduation-cap'}"></i>
-                    ${this.escapeHtml(group.name)}
-                </h4>
-                <span class="schedule-type">${group.type === 'member' ? 'Member' : 'Coaching'}</span>
-            </div>
-            <div class="schedule-timings">
-                ${group.schedules.map(schedule => `
-                    <div class="timing-item">
-                        <strong>${schedule.courtName}</strong><br>
-                        ${schedule.dayOfWeek}s: ${this.formatTime(schedule.startTime)} - ${this.formatTime(this.calculateEndTime(schedule.startTime, schedule.duration))}<br>
-                        <small>Expires: ${schedule.expiresAt ? new Date(schedule.expiresAt).toLocaleDateString() : 'Never'}</small>
-                        <button class="btn btn-sm btn-danger" onclick="adminReservations.cancelRecurringSchedule(${schedule.id})">
-                            <i class="fas fa-times"></i> Cancel
-                        </button>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-}
-
-async cancelRecurringSchedule(scheduleId) {
-    if (!confirm('Are you sure you want to cancel this recurring schedule? This will affect all future bookings.')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/admin/recurring-schedules/${scheduleId}`, {
-            method: 'DELETE'
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            this.showNotification('Recurring schedule cancelled successfully', 'success');
-            this.loadRecurringSchedules();
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (error) {
-        console.error('Error cancelling recurring schedule:', error);
-        this.showNotification(`Failed to cancel schedule: ${error.message}`, 'error');
-    }
-}
-
-escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
     handleBookingTypeChange(type) {
@@ -673,21 +517,21 @@ escapeHtml(text) {
     }
 
     formatTime(timeString) {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-}
+        const [hours, minutes] = timeString.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+    }
 
     calculateEndTime(startTime, duration) {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startMinutes = hours * 60 + minutes;
-    const endMinutes = startMinutes + duration;
-    const endHours = Math.floor(endMinutes / 60);
-    const endMins = endMinutes % 60;
-    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
-}
+        const [hours, minutes] = startTime.split(':').map(Number);
+        const startMinutes = hours * 60 + minutes;
+        const endMinutes = startMinutes + duration;
+        const endHours = Math.floor(endMinutes / 60);
+        const endMins = endMinutes % 60;
+        return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+    }
 
     clearSlotsGrid() {
         const slotsGrid = document.getElementById('admin-slots-grid');
@@ -698,76 +542,60 @@ escapeHtml(text) {
         this.updateSelectedSlotsDisplay();
     }
 
-    // Replace the handleFormSubmit method in adminc.js
-async handleFormSubmit(e) {
-    e.preventDefault();
-    
-    if (!this.validateForm()) {
-        this.showNotification('Please fill all required fields', 'error');
-        return;
-    }
-
-    const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
-    const courtId = document.getElementById('admin-court-select').value;
-    const date = document.getElementById('admin-booking-date').value;
-    const notes = document.getElementById('admin-booking-notes').value;
-    const startTime = [...this.selectedSlots].sort()[0];
-    const duration = this.selectedSlots.length * 30;
-
-    const bookingData = {
-        courtId: parseInt(courtId),
-        date: date,
-        startTime: startTime,
-        duration: duration,
-        notes: notes || null,
-        bookingType: this.bookingType,
-        bookingFrequency: currentTab === 'recurring' ? 'recurring' : 'temporary'
-    };
-
-    // Add recurring-specific data
-    if (currentTab === 'recurring') {
-        if (this.recurringSettings.expiryType !== 'never') {
-            bookingData.expiryType = this.recurringSettings.expiryType;
-            if (this.recurringSettings.expiryType === 'custom' && this.recurringSettings.customExpiryDate) {
-                bookingData.customExpiryDate = this.recurringSettings.customExpiryDate;
-            }
+    async handleFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!this.validateForm()) {
+            this.showNotification('Please fill all required fields', 'error');
+            return;
         }
-    }
 
-    if (this.bookingType === 'member') {
-        bookingData.userId = this.selectedMember.id;
-    } else {
-        bookingData.coachingId = this.selectedCoaching.id;
-    }
+        const courtId = document.getElementById('admin-court-select').value;
+        const date = document.getElementById('admin-booking-date').value;
+        const notes = document.getElementById('admin-booking-notes').value;
+        const startTime = [...this.selectedSlots].sort()[0];
+        const duration = this.selectedSlots.length * 30;
 
-    try {
-        this.showLoadingOverlay();
-        console.log('Creating reservation:', bookingData);
+        const bookingData = {
+            courtId: parseInt(courtId),
+            date: date,
+            startTime: startTime,
+            duration: duration,
+            notes: notes || null,
+            bookingType: this.bookingType
+        };
 
-        const response = await fetch('/api/admin/bookings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bookingData)
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-            const message = currentTab === 'recurring' ? 
-                'Recurring reservation created successfully!' : 
-                'Reservation created successfully!';
-            this.showNotification(message, 'success');
-            this.resetForm();
+        if (this.bookingType === 'member') {
+            bookingData.userId = this.selectedMember.id;
         } else {
-            throw new Error(result.message || 'Failed to create reservation');
+            bookingData.coachingId = this.selectedCoaching.id;
         }
-    } catch (error) {
-        console.error('Error creating reservation:', error);
-        this.showNotification(`Failed to create reservation: ${error.message}`, 'error');
-    } finally {
-        this.hideLoadingOverlay();
+
+        try {
+            this.showLoadingOverlay();
+            console.log('Creating reservation:', bookingData);
+
+            const response = await fetch('/api/admin/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bookingData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                this.showNotification('Reservation created successfully!', 'success');
+                this.resetForm();
+            } else {
+                throw new Error(result.message || 'Failed to create reservation');
+            }
+        } catch (error) {
+            console.error('Error creating reservation:', error);
+            this.showNotification(`Failed to create reservation: ${error.message}`, 'error');
+        } finally {
+            this.hideLoadingOverlay();
+        }
     }
-}
 
     validateForm() {
         const courtSelected = document.getElementById('admin-court-select').value;
@@ -814,7 +642,6 @@ async handleFormSubmit(e) {
         
         console.log('Form reset successfully');
     }
-    
 
     setMinDate() {
         const dateInput = document.getElementById('admin-booking-date');
@@ -960,28 +787,21 @@ class CoachingManager {
     }
 
     displayCoachings() {
-    const container = document.getElementById('coaching-list');
-    if (!container) return;
+        const container = document.getElementById('coaching-list');
+        if (!container) return;
 
-    if (this.coachings.length === 0) {
-        container.innerHTML = `
-            <div class="coaching-empty">
-                <i class="fas fa-graduation-cap"></i>
-                <h3>No Coaching Groups</h3>
-                <p>Start by adding your first coaching group</p>
-            </div>
-        `;
-        return;
-    }
+        if (this.coachings.length === 0) {
+            container.innerHTML = `
+                <div class="coaching-empty">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h3>No Coaching Groups</h3>
+                    <p>Start by adding your first coaching group</p>
+                </div>
+            `;
+            return;
+        }
 
-    // Load coaching schedules for each group
-    const coachingPromises = this.coachings.map(async (coaching) => {
-        const schedules = await this.loadCoachingSchedules(coaching.id);
-        return { ...coaching, schedules };
-    });
-
-    Promise.all(coachingPromises).then(coachingsWithSchedules => {
-        container.innerHTML = coachingsWithSchedules.map(coaching => `
+        container.innerHTML = this.coachings.map(coaching => `
             <div class="coaching-card" data-coaching-id="${coaching.id}">
                 <div class="coaching-card-header">
                     <div class="coaching-title">
@@ -1017,23 +837,9 @@ class CoachingManager {
                         </span>
                     </div>
                 </div>
-                
-                ${coaching.schedules && coaching.schedules.length > 0 ? `
-                    <div class="coaching-schedules">
-                        <h4>Recurring Schedules:</h4>
-                        ${coaching.schedules.map(schedule => `
-                            <div class="schedule-item">
-                                <strong>${schedule.courtName}</strong><br>
-                                ${schedule.dayOfWeek}s: ${this.formatTime(schedule.startTime)} - ${this.formatTime(this.calculateEndTime(schedule.startTime, schedule.duration))}<br>
-                                <small>Expires: ${schedule.expiresAt ? new Date(schedule.expiresAt).toLocaleDateString() : 'Never'}</small>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : ''}
             </div>
         `).join('');
-    });
-}
+    }
 
     showCoachingModal(coaching = null) {
         const modal = document.getElementById('coaching-modal');

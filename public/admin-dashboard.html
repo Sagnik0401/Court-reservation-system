@@ -98,31 +98,21 @@
                 <div class="panel-header">
                     <h2>Booking Management</h2>
                     <div class="panel-header">
-    <!-- Updated booking filter controls -->
-<div class="panel-actions">
-    <input type="date" id="booking-date-filter" class="date-input">
-    <select id="booking-status-filter" class="select-input">
-        <option value="">All Status</option>
-        <option value="confirmed">Confirmed</option>
-        <option value="cancelled">Cancelled</option>
-        <option value="completed">Completed</option>
-    </select>
-    <!-- NEW: Booking frequency filter -->
-    <select id="booking-frequency-filter" class="select-input">
-        <option value="">All Types</option>
-        <option value="temporary">One-time</option>
-        <option value="recurring">Recurring</option>
-    </select>
-    <!-- NEW: Hide expired bookings -->
-    <label class="checkbox-label">
-        <input type="checkbox" id="hide-expired-bookings">
-        Hide Expired
-    </label>
-    <button class="btn btn-secondary" onclick="clearBookingFilters()">Clear Filters</button>
-    <button class="btn btn-info" onclick="openAvailabilityModal()">
-        <i class="fas fa-search"></i> Check Availability
-    </button>
-</div>
+    <h2>Booking Management</h2>
+    <div class="panel-actions">
+        <input type="date" id="booking-date-filter" class="date-input">
+        <select id="booking-status-filter" class="select-input">
+            <option value="">All Status</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+        </select>
+        <button class="btn btn-secondary" onclick="clearBookingFilters()">Clear Filters</button>
+        <!-- NEW: Check Availability Button -->
+        <button class="btn btn-info" onclick="openAvailabilityModal()">
+            <i class="fas fa-search"></i> Check Availability
+        </button>
+    </div>
 </div>
                 </div>
                 <div class="bulk-actions">

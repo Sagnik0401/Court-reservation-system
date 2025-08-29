@@ -18,7 +18,7 @@ async function initializeDashboard() {
     const userData = sessionStorage.getItem('user');
     if (!userData) {
         showToast('Please log in to access admin dashboard.', 'error');
-        setTimeout(() => location.href = 'login.html', 2000);
+        setTimeout(() => location.href = 'index.html', 2000);
         return;
     }
 
@@ -28,7 +28,7 @@ async function initializeDashboard() {
     } catch (error) {
         console.error('Error parsing user data:', error);
         showToast('Invalid session data. Please log in again.', 'error');
-        setTimeout(() => location.href = 'login.html', 2000);
+        setTimeout(() => location.href = 'index.html', 2000);
         return;
     }
 
@@ -66,19 +66,7 @@ function setupEventListeners() {
     document.getElementById('add-member-form').addEventListener('submit', handleAddMember);
     document.getElementById('edit-member-form').addEventListener('submit', handleEditMember);
     document.getElementById('edit-booking-form').addEventListener('submit', handleEditBooking);
-    document.getElementById('booking-date-filter').addEventListener('change', filterBookings);
-    document.getElementById('booking-status-filter').addEventListener('change', filterBookings);
-    
-    // NEW: Add listeners for new filter controls
-    const frequencyFilter = document.getElementById('booking-frequency-filter');
-    if (frequencyFilter) {
-        frequencyFilter.addEventListener('change', filterBookings);
-    }
-    
-    const hideExpiredCheckbox = document.getElementById('hide-expired-bookings');
-    if (hideExpiredCheckbox) {
-        hideExpiredCheckbox.addEventListener('change', filterBookings);
-    }
+
     // Modal close on outside click
     window.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
@@ -240,7 +228,6 @@ async function loadBookings() {
 }
 
 // Render bookings table
-// Updated renderBookings function to handle booking frequency
 function renderBookings(bookings) {
     const tbody = document.getElementById('bookings-tbody');
     tbody.innerHTML = '';
@@ -269,35 +256,13 @@ function renderBookings(bookings) {
             if (new Date() > thirtyMinutesAfterEnd) {
                 canEdit = false;
             }
-        }
-
-        // Add frequency indicator and expiry info
-        let frequencyBadge = '';
-        if (booking.bookingFrequency === 'recurring') {
-            frequencyBadge = '<span class="frequency-badge recurring">Recurring</span>';
-        } else {
-            frequencyBadge = '<span class="frequency-badge temporary">One-time</span>';
-        }
-
-        // Show expiry date for temporary bookings
-        let expiryInfo = '';
-        if (booking.bookingFrequency === 'temporary' && booking.expiresAt) {
-            const expiryDate = new Date(booking.expiresAt);
-            const isExpired = now > expiryDate;
-            expiryInfo = `<br><small class="${isExpired ? 'text-danger' : 'text-muted'}">
-                ${isExpired ? 'Expired:' : 'Expires:'} ${expiryDate.toLocaleString()}
-            </small>`;
-        }
+        }   
 
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><input type="checkbox" class="booking-checkbox" data-booking-id="${booking.id}"></td>
             <td>${index + 1}</td>
-            <td>
-                ${booking.memberName} (${booking.membershipId})
-                ${frequencyBadge}
-                ${expiryInfo}
-            </td>
+            <td>${booking.memberName} (${booking.membershipId})</td>
             <td>${booking.courtName}</td>
             <td>${new Date(booking.date).toLocaleDateString()}</td>
             <td>${booking.startTime} - ${booking.endTime}</td>
@@ -307,15 +272,13 @@ function renderBookings(bookings) {
                 ${canEdit ? 
                     `<button class="btn btn-sm btn-secondary" onclick="editBooking(${booking.id})">Edit</button>` :
                     `<button class="btn btn-sm btn-secondary" disabled title="Cannot edit ${displayStatus} booking">Edit</button>`
+                    
                 }
                 ${displayStatus === 'confirmed' ? 
                     `<button class="btn btn-sm btn-success" onclick="completeBooking(${booking.id})">Complete</button>
                      <button class="btn btn-sm btn-warning" onclick="cancelBooking(${booking.id})">Cancel</button>` :
                     displayStatus === 'pending' ?
                     `<button class="btn btn-sm btn-warning" onclick="cancelBooking(${booking.id})">Cancel</button>` : ''
-                }
-                ${booking.bookingFrequency === 'recurring' && booking.recurringParentId === null ? 
-                    `<button class="btn btn-sm btn-info" onclick="manageRecurringBooking(${booking.id})">Manage Series</button>` : ''
                 }
             </td>
         `;
@@ -324,11 +287,9 @@ function renderBookings(bookings) {
 }
 
 // Filter bookings
-// Updated filterBookings function to include booking frequency filter
 function filterBookings() {
     const dateFilter = document.getElementById('booking-date-filter').value;
     const statusFilter = document.getElementById('booking-status-filter').value;
-    const frequencyFilter = document.getElementById('booking-frequency-filter')?.value || '';
     const now = new Date();
     
     let filteredBookings = allBookings.map(booking => {
@@ -348,7 +309,6 @@ function filterBookings() {
         return { ...booking, displayStatus };
     });
     
-    // Apply filters
     if (dateFilter) {
         filteredBookings = filteredBookings.filter(booking => booking.date === dateFilter);
     }
@@ -361,23 +321,6 @@ function filterBookings() {
         });
     }
     
-    // NEW: Filter by booking frequency
-    if (frequencyFilter) {
-        filteredBookings = filteredBookings.filter(booking => 
-            booking.bookingFrequency === frequencyFilter
-        );
-    }
-    
-    // Filter expired bookings if checkbox is checked
-    const hideExpiredCheckbox = document.getElementById('hide-expired-bookings');
-    if (hideExpiredCheckbox?.checked) {
-        filteredBookings = filteredBookings.filter(booking => {
-            if (booking.bookingFrequency === 'recurring') return true;
-            if (!booking.expiresAt) return true;
-            return new Date(booking.expiresAt) > now;
-        });
-    }
-    
     renderBookings(filteredBookings);
 }
 
@@ -385,18 +328,6 @@ function filterBookings() {
 function clearBookingFilters() {
     document.getElementById('booking-date-filter').value = '';
     document.getElementById('booking-status-filter').value = '';
-    
-    // Clear new filters
-    const frequencyFilter = document.getElementById('booking-frequency-filter');
-    if (frequencyFilter) {
-        frequencyFilter.value = '';
-    }
-    
-    const hideExpiredCheckbox = document.getElementById('hide-expired-bookings');
-    if (hideExpiredCheckbox) {
-        hideExpiredCheckbox.checked = false;
-    }
-    
     renderBookings(allBookings);
 }
 
@@ -1134,139 +1065,5 @@ function closeAvailabilityModal() {
         if (resultsDiv) {
             resultsDiv.innerHTML = '<p class="text-muted">Select a court and date to check availability</p>';
         }
-    }
-}
-
-// NEW: Function to manage recurring booking series
-async function manageRecurringBooking(bookingId) {
-    try {
-        // Get recurring booking details and all related bookings
-        const response = await fetch(`/api/bookings/recurring-series/${bookingId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const { parentBooking, childBookings } = data;
-            
-            // Show modal with recurring booking management options
-            showRecurringBookingModal(parentBooking, childBookings);
-        } else {
-            showToast(data.message || 'Error loading recurring booking series', 'error');
-        }
-    } catch (error) {
-        console.error('Error managing recurring booking:', error);
-        showToast('Error loading recurring booking series', 'error');
-    }
-}
-
-// NEW: Show recurring booking management modal
-function showRecurringBookingModal(parentBooking, childBookings) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.id = 'recurring-booking-modal';
-    
-    const totalBookings = childBookings.length + 1; // Include parent
-    const activeBookings = childBookings.filter(b => b.status === 'confirmed').length + 
-                          (parentBooking.status === 'confirmed' ? 1 : 0);
-    
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Manage Recurring Booking Series</h3>
-                <span class="close" onclick="closeModal('recurring-booking-modal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="recurring-info">
-                    <h4>${parentBooking.memberName} - ${parentBooking.courtName}</h4>
-                    <p><strong>Schedule:</strong> Every ${parentBooking.dayOfWeek} at ${parentBooking.startTime}</p>
-                    <p><strong>Duration:</strong> ${parentBooking.duration} minutes</p>
-                    <p><strong>Total Bookings:</strong> ${totalBookings} (${activeBookings} active)</p>
-                </div>
-                
-                <div class="recurring-actions">
-                    <button class="btn btn-warning" onclick="cancelRecurringSeries(${parentBooking.id})">
-                        Cancel Entire Series
-                    </button>
-                    <button class="btn btn-info" onclick="modifyRecurringSeries(${parentBooking.id})">
-                        Modify Series
-                    </button>
-                    <button class="btn btn-success" onclick="extendRecurringSeries(${parentBooking.id})">
-                        Extend Series
-                    </button>
-                </div>
-                
-                <div class="child-bookings-list">
-                    <h5>Individual Bookings:</h5>
-                    <div class="bookings-list">
-                        ${childBookings.map(booking => `
-                            <div class="booking-item">
-                                <span>${new Date(booking.date).toLocaleDateString()} - ${booking.status}</span>
-                                <button class="btn btn-sm btn-warning" 
-                                        onclick="cancelSingleBooking(${booking.id})"
-                                        ${booking.status !== 'confirmed' ? 'disabled' : ''}>
-                                    Cancel This One
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    openModal('recurring-booking-modal');
-}
-
-// NEW: Cancel entire recurring series
-async function cancelRecurringSeries(parentBookingId) {
-    if (!confirm('Are you sure you want to cancel the entire recurring booking series? This cannot be undone.')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/bookings/recurring-series/${parentBookingId}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Recurring booking series cancelled successfully', 'success');
-            closeModal('recurring-booking-modal');
-            await loadBookings();
-            await loadStats();
-        } else {
-            showToast(data.message || 'Error cancelling series', 'error');
-        }
-    } catch (error) {
-        console.error('Error cancelling recurring series:', error);
-        showToast('Error cancelling recurring series', 'error');
-    }
-}
-
-// NEW: Cancel single booking from series
-async function cancelSingleBooking(bookingId) {
-    if (!confirm('Cancel this individual booking from the series?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/bookings/${bookingId}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Booking cancelled successfully', 'success');
-            closeModal('recurring-booking-modal');
-            await loadBookings();
-            await loadStats();
-        } else {
-            showToast(data.message || 'Error cancelling booking', 'error');
-        }
-    } catch (error) {
-        console.error('Error cancelling booking:', error);
-        showToast('Error cancelling booking', 'error');
     }
 }

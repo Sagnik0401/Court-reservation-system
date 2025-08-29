@@ -103,45 +103,41 @@ class TennisCourtDashboard {
     }
 
     setupEventListeners() {
-    // Navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = link.getAttribute('data-section');
-            this.showSection(section);
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.getAttribute('data-section');
+                this.showSection(section);
+            });
         });
-    });
 
-    // Booking form
-    const bookingForm = document.getElementById('bookingForm');
-    if (bookingForm) {
-        bookingForm.addEventListener('submit', (e) => this.handleBookingSubmit(e));
-    }
+        // Booking form
+        const bookingForm = document.getElementById('bookingForm');
+        if (bookingForm) {
+            bookingForm.addEventListener('submit', (e) => this.handleBookingSubmit(e));
+        }
 
-    // Court and date selection
-    const courtSelect = document.getElementById('courtSelect');
-    const bookingDate = document.getElementById('bookingDate');
-    
-    if (courtSelect) {
-        courtSelect.addEventListener('change', () => this.updateAvailability());
-    }
-    
-    if (bookingDate) {
-        bookingDate.addEventListener('change', () => {
-            this.updateAvailability();
-            // Regenerate time slots based on selected date
-            this.generateTimeSlots(bookingDate.value);
-        });
-        // Set minimum date to today
-        bookingDate.min = new Date().toISOString().split('T')[0];
-    }
+        // Court and date selection
+        const courtSelect = document.getElementById('courtSelect');
+        const bookingDate = document.getElementById('bookingDate');
+        
+        if (courtSelect) {
+            courtSelect.addEventListener('change', () => this.updateAvailability());
+        }
+        
+        if (bookingDate) {
+            bookingDate.addEventListener('change', () => this.updateAvailability());
+            // Set minimum date to today
+            bookingDate.min = new Date().toISOString().split('T')[0];
+        }
 
-    // Booking filter
-    const bookingFilter = document.getElementById('bookingFilter');
-    if (bookingFilter) {
-        bookingFilter.addEventListener('change', () => this.filterBookings());
+        // Booking filter
+        const bookingFilter = document.getElementById('bookingFilter');
+        if (bookingFilter) {
+            bookingFilter.addEventListener('change', () => this.filterBookings());
+        }
     }
-}
 
     showSection(sectionName) {
         // Update navigation
@@ -176,70 +172,45 @@ class TennisCourtDashboard {
     }
 
     // ✅ ENHANCED: Generate valid time slots based on requirements
-    generateTimeSlots(selectedDate = null) {
-    const startTime = document.getElementById('startTime');
-    if (!startTime) return;
+    generateTimeSlots() {
+        const startTime = document.getElementById('startTime');
+        if (!startTime) return;
 
-    startTime.innerHTML = '<option value="">Select time...</option>';
-    
-    const now = new Date();
-    const isToday = selectedDate && new Date(selectedDate).toDateString() === now.toDateString();
-    
-    // Morning slots: 6:00 AM to 11:30 AM
-    const morningSlots = [];
-    for (let hour = 6; hour <= 11; hour++) {
-        for (let minute = 0; minute < 60; minute += 30) {
-            if (hour === 11 && minute > 30) break; // Stop at 11:30 AM
-            const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            
-            // Filter out past slots for today
-            if (isToday) {
-                const slotTime = new Date();
-                slotTime.setHours(hour, minute, 0, 0);
-                if (slotTime <= now) continue;
+        startTime.innerHTML = '<option value="">Select time...</option>';
+        
+        // Morning slots: 6:00 AM to 11:30 AM
+        const morningSlots = [];
+        for (let hour = 6; hour <= 11; hour++) {
+            for (let minute = 0; minute < 60; minute += 30) {
+                if (hour === 11 && minute > 30) break; // Stop at 11:30 AM
+                morningSlots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
             }
-            
-            morningSlots.push(timeString);
         }
-    }
 
-    // Evening slots: 3:00 PM to 10:00 PM
-    const eveningSlots = [];
-    for (let hour = 15; hour <= 22; hour++) {
-        for (let minute = 0; minute < 60; minute += 30) {
-            if (hour === 22 && minute > 0) break; // Stop at 10:00 PM
-            const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            
-            // Filter out past slots for today
-            if (isToday) {
-                const slotTime = new Date();
-                slotTime.setHours(hour, minute, 0, 0);
-                if (slotTime <= now) continue;
+        // Evening slots: 3:00 PM to 10:00 PM
+        const eveningSlots = [];
+        for (let hour = 15; hour <= 22; hour++) {
+            for (let minute = 0; minute < 60; minute += 30) {
+                if (hour === 22 && minute > 0) break; // Stop at 10:00 PM
+                eveningSlots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
             }
-            
-            eveningSlots.push(timeString);
         }
-    }
 
-    // Add morning slots
-    if (morningSlots.length > 0) {
+        // Add morning slots
         morningSlots.forEach(timeString => {
             const displayTime = this.formatTime(timeString);
             startTime.innerHTML += `<option value="${timeString}">${displayTime}</option>`;
         });
 
-        // Add separator only if there are evening slots too
-        if (eveningSlots.length > 0) {
-            startTime.innerHTML += `<option disabled>── Evening Slots ──</option>`;
-        }
-    }
+        // Add separator
+        startTime.innerHTML += `<option disabled>── Evening Slots ──</option>`;
 
-    // Add evening slots
-    eveningSlots.forEach(timeString => {
-        const displayTime = this.formatTime(timeString);
-        startTime.innerHTML += `<option value="${timeString}">${displayTime}</option>`;
-    });
-}
+        // Add evening slots
+        eveningSlots.forEach(timeString => {
+            const displayTime = this.formatTime(timeString);
+            startTime.innerHTML += `<option value="${timeString}">${displayTime}</option>`;
+        });
+    }
 
     formatTime(timeString) {
         const [hours, minutes] = timeString.split(':');
@@ -278,65 +249,50 @@ class TennisCourtDashboard {
     }
 
     displayAvailabilityGrid(availability, courtId, date) {
-    const availabilityGrid = document.getElementById('availabilityGrid');
-    if (!availabilityGrid) return;
+        const availabilityGrid = document.getElementById('availabilityGrid');
+        if (!availabilityGrid) return;
 
-    if (!availability || availability.length === 0) {
-        availabilityGrid.innerHTML = '<p class="text-muted">No availability data found</p>';
-        return;
-    }
-
-    // Filter out past slots for today
-    const now = new Date();
-    const isToday = new Date(date).toDateString() === now.toDateString();
-    
-    const filteredAvailability = availability.filter(slot => {
-        if (isToday) {
-            const [hours, minutes] = slot.time.split(':').map(Number);
-            const slotTime = new Date();
-            slotTime.setHours(hours, minutes, 0, 0);
-            return slotTime > now;
+        if (!availability || availability.length === 0) {
+            availabilityGrid.innerHTML = '<p class="text-muted">No availability data found</p>';
+            return;
         }
-        return true;
-    });
 
-    const morningSlots = filteredAvailability.filter(slot => {
-        const [hour] = slot.time.split(':');
-        return parseInt(hour) < 12;
-    });
-
-    const eveningSlots = filteredAvailability.filter(slot => {
-        const [hour] = slot.time.split(':');
-        return parseInt(hour) >= 15;
-    });
-
-    let html = '';
-    
-    if (morningSlots.length > 0) {
-        html += '<h4>Morning Slots (6:00 AM - 11:30 AM)</h4>';
-        html += '<div class="time-slots-grid">';
-        morningSlots.forEach(slot => {
-            html += `<div class="court-slot ${slot.status}" data-time="${slot.time}">
-                ${this.formatTime(slot.time)} - ${this.capitalizeFirst(slot.status)}
-            </div>`;
+        const morningSlots = availability.filter(slot => {
+            const [hour] = slot.time.split(':');
+            return parseInt(hour) < 12;
         });
-        html += '</div>';
-    }
 
-    if (eveningSlots.length > 0) {
-        html += '<h4>Evening Slots (3:00 PM - 10:00 PM)</h4>';
-        html += '<div class="time-slots-grid">';
-        eveningSlots.forEach(slot => {
-            html += `<div class="court-slot ${slot.status}" data-time="${slot.time}">
-                ${this.formatTime(slot.time)} - ${this.capitalizeFirst(slot.status)}
-            </div>`;
+        const eveningSlots = availability.filter(slot => {
+            const [hour] = slot.time.split(':');
+            return parseInt(hour) >= 15;
         });
-        html += '</div>';
+
+        let html = '';
+        
+        if (morningSlots.length > 0) {
+            html += '<h4>Morning Slots (6:00 AM - 11:30 AM)</h4>';
+            html += '<div class="time-slots-grid">';
+            morningSlots.forEach(slot => {
+                html += `<div class="court-slot ${slot.status}" data-time="${slot.time}">
+                    ${this.formatTime(slot.time)} - ${this.capitalizeFirst(slot.status)}
+                </div>`;
+            });
+            html += '</div>';
+        }
+
+        if (eveningSlots.length > 0) {
+            html += '<h4>Evening Slots (3:00 PM - 10:00 PM)</h4>';
+            html += '<div class="time-slots-grid">';
+            eveningSlots.forEach(slot => {
+                html += `<div class="court-slot ${slot.status}" data-time="${slot.time}">
+                    ${this.formatTime(slot.time)} - ${this.capitalizeFirst(slot.status)}
+                </div>`;
+            });
+            html += '</div>';
+        }
+
+        availabilityGrid.innerHTML = html;
     }
-
-    availabilityGrid.innerHTML = html;
-}
-
 
     clearAvailabilityGrid() {
         const availabilityGrid = document.getElementById('availabilityGrid');
@@ -542,21 +498,15 @@ class TennisCourtDashboard {
     
     const isUpcoming = now < endDateTime && booking.status !== 'cancelled';
     
-    // Check if booking can be cancelled (at least 1 hour before start time) - Only for temporary bookings
+    // Check if booking can be cancelled (at least 1 hour before start time)
     const hourBeforeBooking = new Date(startDateTime.getTime() - 60 * 60 * 1000);
-    const canCancel = isUpcoming && now < hourBeforeBooking && booking.bookingFrequency === 'temporary';
-
-    // Add frequency badge
-    const frequencyBadge = booking.bookingFrequency === 'recurring' 
-        ? '<span class="frequency-badge recurring">Recurring</span>' 
-        : '<span class="frequency-badge temporary">One-time</span>';
+    const canCancel = isUpcoming && now < hourBeforeBooking;
 
     return `
-        <div class="booking-card ${booking.status} ${booking.bookingFrequency}">
+        <div class="booking-card ${booking.status}">
             <div class="booking-header">
                 <div>
                     <div class="booking-title">${booking.courtName || (court ? court.name : `Court ${booking.courtId}`)} - ${court ? court.surface_type : 'Clay'}</div>
-                    ${frequencyBadge}
                 </div>
                 <div class="booking-status ${booking.status}">${this.capitalizeFirst(booking.status)}</div>
             </div>
@@ -578,12 +528,6 @@ class TennisCourtDashboard {
                     <div class="booking-detail-label">Booked</div>
                     <div class="booking-detail-value">${new Date(booking.createdAt).toLocaleDateString()}</div>
                 </div>
-                ${booking.bookingFrequency === 'temporary' && booking.expiresAt ? `
-                <div class="booking-detail">
-                    <div class="booking-detail-label">Expires</div>
-                    <div class="booking-detail-value">${new Date(booking.expiresAt).toLocaleDateString()}</div>
-                </div>
-                ` : ''}
             </div>
             
             ${booking.notes ? `
@@ -602,7 +546,7 @@ class TennisCourtDashboard {
             </div>
         </div>
     `;
-}
+    }
 
     showQuickBookingModal() {
     const modal = document.getElementById('quickBookingModal');
@@ -716,7 +660,7 @@ displayQuickBookingSlots(availability, courtId, date) {
     html += '<p class="text-muted">Click on slots to select them. You can select up to 2 hours of consecutive slots.</p>';
     
     if (morningSlots.length > 0) {
-        html += '<h4>Morning Slots (6:00 AM - 12 PM)</h4>';
+        html += '<h4>Morning Slots (6:00 AM - 11:30 AM)</h4>';
         html += '<div class="time-slots-grid">';
         morningSlots.forEach(slot => {
             html += `<div class="court-slot available slot-selectable" data-time="${slot.time}" onclick="dashboard.toggleSlotSelection('${slot.time}')">
@@ -727,7 +671,7 @@ displayQuickBookingSlots(availability, courtId, date) {
     }
 
     if (eveningSlots.length > 0) {
-        html += '<h4>Evening Slots (3:00 PM - 10:30 PM)</h4>';
+        html += '<h4>Evening Slots (3:00 PM - 10:00 PM)</h4>';
         html += '<div class="time-slots-grid">';
         eveningSlots.forEach(slot => {
             html += `<div class="court-slot available slot-selectable" data-time="${slot.time}" onclick="dashboard.toggleSlotSelection('${slot.time}')">
@@ -951,100 +895,48 @@ async confirmQuickBooking() {
     });
     }
 
-    async updateProfileStats() {
-    const memberSince = document.getElementById('memberSince');
-    const totalPlayTime = document.getElementById('totalPlayTime');
-    const favoriteCourt = document.getElementById('favoriteCourt');
+    updateProfileStats() {
+        const memberSince = document.getElementById('memberSince');
+        const totalPlayTime = document.getElementById('totalPlayTime');
+        const favoriteCourt = document.getElementById('favoriteCourt');
 
-    if (memberSince && this.user.joinDate) {
-        const joinDate = new Date(this.user.joinDate);
-        memberSince.textContent = joinDate.toLocaleDateString();
-    }
+        if (memberSince && this.user.joinDate) {
+            const joinDate = new Date(this.user.joinDate);
+            memberSince.textContent = joinDate.toLocaleDateString();
+        }
 
-    if (totalPlayTime) {
-        const totalMinutes = this.bookings
-            .filter(b => {
-                const bookingDate = new Date(b.date);
-                return b.status === 'completed' || (bookingDate < new Date() && b.status !== 'cancelled');
-            })
-            .reduce((sum, booking) => sum + (booking.duration || 0), 0);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        totalPlayTime.textContent = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    }
+        if (totalPlayTime) {
+            // Calculate total play time from completed bookings
+            const totalMinutes = this.bookings
+                .filter(b => {
+                    const bookingDate = new Date(b.date);
+                    return b.status === 'completed' || (bookingDate < new Date() && b.status !== 'cancelled');
+                })
+                .reduce((sum, booking) => sum + (booking.duration || 0), 0);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            totalPlayTime.textContent = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+        }
 
-    if (favoriteCourt) {
-        const courtCounts = {};
-        this.bookings.forEach(booking => {
-            courtCounts[booking.courtId] = (courtCounts[booking.courtId] || 0) + 1;
-        });
-        
-        if (Object.keys(courtCounts).length > 0) {
-            const favCourtId = Object.keys(courtCounts).reduce((a, b) => 
-                courtCounts[a] > courtCounts[b] ? a : b
-            );
+        if (favoriteCourt) {
+            // Find most frequently booked court
+            const courtCounts = {};
+            this.bookings.forEach(booking => {
+                courtCounts[booking.courtId] = (courtCounts[booking.courtId] || 0) + 1;
+            });
             
-            const court = this.courts.find(c => c.id == favCourtId);
-            favoriteCourt.textContent = court ? court.name : 'Court 1';
-        } else {
-            favoriteCourt.textContent = 'None yet';
+            if (Object.keys(courtCounts).length > 0) {
+                const favCourtId = Object.keys(courtCounts).reduce((a, b) => 
+                    courtCounts[a] > courtCounts[b] ? a : b
+                );
+                
+                const court = this.courts.find(c => c.id == favCourtId);
+                favoriteCourt.textContent = court ? court.name : 'Court 1';
+            } else {
+                favoriteCourt.textContent = 'None yet';
+            }
         }
     }
-
-    // Load and display recurring bookings
-    await this.loadRecurringBookings();
-}
-
-async loadRecurringBookings() {
-    try {
-        const response = await fetch(`/api/bookings/recurring/${this.user.id}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            this.displayRecurringBookings(data.recurringBookings);
-        }
-    } catch (error) {
-        console.error('Error loading recurring bookings:', error);
-    }
-}
-
-displayRecurringBookings(recurringBookings) {
-    const existingSection = document.getElementById('recurringBookingsSection');
-    if (existingSection) {
-        existingSection.remove();
-    }
-
-    const profileContainer = document.querySelector('.profile-container');
-    if (!profileContainer || recurringBookings.length === 0) return;
-
-    const recurringSection = document.createElement('div');
-    recurringSection.id = 'recurringBookingsSection';
-    recurringSection.className = 'recurring-bookings-section';
-    
-    let html = `
-        <h3>Your Regular Schedule</h3>
-        <div class="recurring-bookings-grid">
-    `;
-    
-    recurringBookings.forEach(booking => {
-        const endTime = this.calculateEndTime(booking.startTime, booking.duration);
-        html += `
-            <div class="recurring-booking-card">
-                <div class="recurring-day">${booking.dayOfWeek}</div>
-                <div class="recurring-details">
-                    <div class="recurring-court">Court ${booking.courtId}</div>
-                    <div class="recurring-time">${this.formatTime(booking.startTime)} - ${this.formatTime(endTime)}</div>
-                    <div class="recurring-duration">${booking.duration} minutes</div>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    recurringSection.innerHTML = html;
-    
-    profileContainer.appendChild(recurringSection);
-}
 
     checkAvailability() {
         this.showAvailabilityModal();
