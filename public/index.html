@@ -545,6 +545,51 @@
     </div>
 
     <script>
+        // Determine the correct API base URL
+const getApiBaseUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3000'; // Local development
+  } else {
+    return ''; // Production - use relative paths
+  }
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+async function loginUser(email, password) {
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    // Add better error handling
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Response not OK:', response.status, errorText);
+      
+      // Try to parse as JSON, fallback to text
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+      
+      throw new Error(errorData.message || `Server error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
+
         // Create floating particles
         function createParticles() {
             const particlesContainer = document.querySelector('.particles');

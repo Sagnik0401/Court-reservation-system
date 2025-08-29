@@ -1,4 +1,15 @@
 // Admin Create Reservations System
+// Determine the correct API base URL
+const getApiBaseUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3000'; // Local development
+  } else {
+    return ''; // Production - use relative paths
+  }
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 class AdminCreateReservations {
     constructor() {
         this.members = [];
