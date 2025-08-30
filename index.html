@@ -545,58 +545,161 @@
     </div>
 
     <script>
-        // Create floating particles
-        function createParticles() {
-            const particlesContainer = document.querySelector('.particles');
-            if (!particlesContainer) return;
+        // Tennis Court Login JavaScript
+// Enhanced API configuration with better error handling
+function getApiBaseUrl() {
+    // For local development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return `${window.location.protocol}//${window.location.host}`;
+    }
+    // For production (Vercel, GitHub Pages, etc.)
+    return window.location.origin;
+}
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('API Base URL:', API_BASE_URL);
+
+// Enhanced fetch function with better error handling and debugging
+async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
     
-            for (let i = 0; i < 50; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 20 + 's';
-                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-                particlesContainer.appendChild(particle);
-            }
-        }
-
-        // Email validation function
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        // Show error for form group
-        function showError(inputId, message) {
-            const formGroup = document.getElementById(inputId).closest('.form-group');
-            formGroup.classList.add('error');
-            const errorMsg = formGroup.querySelector('.error-message');
-            if (errorMsg) {
-                errorMsg.textContent = message;
-            }
-        }
-
-        // Clear error for form group
-        function clearError(inputId) {
-            const formGroup = document.getElementById(inputId).closest('.form-group');
-            formGroup.classList.remove('error');
-        }
-
-        // Clear all errors
-        function clearAllErrors() {
-            document.querySelectorAll('.form-group').forEach(group => {
-                group.classList.remove('error');
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
+        
+        console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
+        
+        // Log response headers for debugging
+        const contentType = response.headers.get('content-type');
+        console.log('Response Content-Type:', contentType);
+        
+        // Check if response is HTML instead of JSON
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Server returned non-JSON response:', {
+                status: response.status,
+                statusText: response.statusText,
+                contentType,
+                url,
+                responsePreview: text.substring(0, 200)
             });
-        }
+            
+            // Try to provide more specific error message
+            if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+                throw new Error(`Server returned HTML instead of JSON. This usually means:
+1. The API endpoint doesn't exist
+2. There's a server routing issue
+3. The server is down or misconfigured
 
-        // Show success message
-        function showSuccess() {
-            const successMessage = document.getElementById('successMessage');
-            successMessage.classList.add('show');
+URL attempted: ${url}
+Response status: ${response.status}`);
+            }
+            
+            throw new Error(`Invalid response format. Expected JSON but got ${contentType || 'unknown'}.
+URL: ${url}
+Status: ${response.status}
+Response preview: ${text.substring(0, 100)}...`);
         }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('❌ API Error Response:', data);
+            throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('✅ API Success:', endpoint);
+        return data;
+        
+    } catch (error) {
+        console.error('💥 API call failed:', {
+            endpoint,
+            url,
+            error: error.message,
+            options
+        });
+        
+        // Re-throw with more context
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error(`Network error: Unable to connect to the server. Check your internet connection and server status.`);
+        }
+        throw error;
+    }
+}
 
-        // Form submission handler
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+// Enhanced login function using the new API call method
+async function loginUser(email, password) {
+    try {
+        const data = await apiCall('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+        return data;
+    } catch (error) {
+        console.error('Login error:', error);
+        throw error;
+    }
+}
+
+// Create floating particles
+function createParticles() {
+    const particlesContainer = document.querySelector('.particles');
+    if (!particlesContainer) return;
+
+    for (let i = 0; i < 50; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 20 + 's';
+        particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+        particlesContainer.appendChild(particle);
+    }
+}
+
+// Email validation function
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Show error for form group
+function showError(inputId, message) {
+    const formGroup = document.getElementById(inputId).closest('.form-group');
+    formGroup.classList.add('error');
+    const errorMsg = formGroup.querySelector('.error-message');
+    if (errorMsg) {
+        errorMsg.textContent = message;
+    }
+}
+
+// Clear error for form group
+function clearError(inputId) {
+    const formGroup = document.getElementById(inputId).closest('.form-group');
+    formGroup.classList.remove('error');
+}
+
+// Clear all errors
+function clearAllErrors() {
+    document.querySelectorAll('.form-group').forEach(group => {
+        group.classList.remove('error');
+    });
+}
+
+// Show success message
+function showSuccess() {
+    const successMessage = document.getElementById('successMessage');
+    successMessage.classList.add('show');
+}
+
+// Enhanced form submission handler
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     console.log('🚀 Form submitted!');
     
@@ -630,22 +733,9 @@
     loadingSpinner.style.display = 'block';
     
     try {
-        // Use relative URL to work with your server setup
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password })
-        });
+        const data = await loginUser(email, password);
         
-        console.log('📡 Response status:', response.status);
-        console.log('✅ Response ok:', response.ok);
-        
-        const data = await response.json();
-        console.log('📦 Response data:', data);
-        
-        if (response.ok && data.success) {
+        if (data.success) {
             console.log('🎯 Login successful!');
             console.log('👤 User data:', data.user);
             
@@ -686,6 +776,10 @@
             showError('email', 'Email address not found');
         } else if (error.message.includes('Invalid password')) {
             showError('password', 'Invalid password');
+        } else if (error.message.includes('Server returned HTML')) {
+            showError('email', 'Server configuration error. Please try again later.');
+        } else if (error.message.includes('Network error')) {
+            showError('email', 'Unable to connect to server. Check your internet connection.');
         } else {
             showError('email', `Login failed: ${error.message}`);
         }
@@ -698,77 +792,76 @@
     }
 });
 
-        // Forgot password handler
-        function handleForgotPassword() {
-            alert('Forgot password functionality would redirect to password reset page');
-            // In real implementation: window.location.href = '/forgot-password';
-        }
+// Forgot password handler
+function handleForgotPassword() {
+    alert('Forgot password functionality would redirect to password reset page');
+    // In real implementation: window.location.href = '/forgot-password';
+}
 
-        // Test functions for debugging
-        async function testServer() {
-            try {
-                console.log('🔍 Testing server connection...');
-                const response = await fetch('/api/test');
-                const data = await response.json();
-                console.log('✅ Server test result:', data);
-                return data;
-            } catch (error) {
-                console.error('❌ Server test failed:', error);
-                return null;
-            }
-        }
+// Enhanced test functions for debugging
+async function testServer() {
+    try {
+        console.log('🔍 Testing server connection...');
+        const data = await apiCall('/api/test');
+        console.log('✅ Server test result:', data);
+        return data;
+    } catch (error) {
+        console.error('❌ Server test failed:', error);
+        return null;
+    }
+}
 
-        function testRedirect() {
-            console.log('🧪 Testing redirect...');
-            window.location.href = '/dashboard.html';
-        }
+function testRedirect() {
+    console.log('🧪 Testing redirect...');
+    window.location.href = '/dashboard.html';
+}
 
-        // Add input focus effects and clear errors on input
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.classList.add('focused');
-                clearError(this.id);
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.classList.remove('focused');
-            });
+// Add input focus effects and clear errors on input
+document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('focus', function() {
+        this.parentElement.classList.add('focused');
+        clearError(this.id);
+    });
+    
+    input.addEventListener('blur', function() {
+        this.parentElement.classList.remove('focused');
+    });
 
-            input.addEventListener('input', function() {
-                clearError(this.id);
-            });
-        });
+    input.addEventListener('input', function() {
+        clearError(this.id);
+    });
+});
 
-        // Initialize particles and test server on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🎨 Page loaded, creating particles...');
-            createParticles();
-            
-            // Auto-test server connection
-            testServer();
-        });
+// Initialize particles and test server on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎨 Page loaded, creating particles...');
+    createParticles();
+    
+    // Auto-test server connection
+    testServer();
+});
 
-        // Add mouse movement parallax effect
-        document.addEventListener('mousemove', function(e) {
-            const container = document.querySelector('.login-container');
-            if (!container) return;
-            
-            const rect = container.getBoundingClientRect();
-            const x = e.clientX - rect.left - rect.width / 2;
-            const y = e.clientY - rect.top - rect.height / 2;
-            
-            const rotateX = (y / rect.height) * -10;
-            const rotateY = (x / rect.width) * 10;
-            
-            container.style.transform = `perspective(1000px) rotateX(${2 + rotateX}deg) rotateY(${-2 + rotateY}deg)`;
-        });
+// Add mouse movement parallax effect
+document.addEventListener('mousemove', function(e) {
+    const container = document.querySelector('.login-container');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    
+    const rotateX = (y / rect.height) * -10;
+    const rotateY = (x / rect.width) * 10;
+    
+    container.style.transform = `perspective(1000px) rotateX(${2 + rotateX}deg) rotateY(${-2 + rotateY}deg)`;
+});
 
-        // Reset transform when mouse leaves
-        document.addEventListener('mouseleave', function() {
-            const container = document.querySelector('.login-container');
-            if (!container) return;
-            container.style.transform = 'perspective(1000px) rotateX(2deg) rotateY(-2deg)';
-        });
+// Reset transform when mouse leaves
+document.addEventListener('mouseleave', function() {
+    const container = document.querySelector('.login-container');
+    if (!container) return;
+    container.style.transform = 'perspective(1000px) rotateX(2deg) rotateY(-2deg)';
+});
     </script>
 </body>
 </html>

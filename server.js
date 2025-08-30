@@ -30,18 +30,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Enhanced CORS middleware for deployment
+// Updated CORS middleware for Vercel deployment
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'https://your-deployment-domain.com', // Replace with actual domain
-  ];
-  
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin) || !origin) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-  }
+  const host = req.headers.host;
   
+  // Allow all origins for now (you can restrict later)
+  res.header('Access-Control-Allow-Origin', origin || '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -1796,32 +1791,32 @@ app.delete('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
   }
 });
 
-// Enhanced error handling for static file routes
-app.get('/', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  } catch (error) {
-    console.error('❌ Error serving index.html:', error);
-    res.status(500).send('Server error while loading the homepage');
-  }
+// Enhanced global error handling middleware
+app.use((err, req, res, next) => {
+  console.error('💥 Unhandled Error:', err);
+  
+  // Don't send error details in production
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message;
+    
+  res.status(500).json({
+    success: false,
+    message: errorMessage,
+    code: 'INTERNAL_SERVER_ERROR',
+    timestamp: new Date().toISOString()
+  });
 });
 
-app.get('/dashboard.html', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-  } catch (error) {
-    console.error('❌ Error serving dashboard.html:', error);
-    res.status(500).send('Server error while loading the dashboard');
-  }
-});
-
-app.get('/admin-dashboard.html', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
-  } catch (error) {
-    console.error('❌ Error serving admin-dashboard.html:', error);
-    res.status(500).send('Server error while loading the admin dashboard');
-  }
+// Enhanced 404 handler - ONLY for API routes
+app.use('/api/*', (req, res) => {
+  console.warn(`⚠️  API 404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: `API route not found: ${req.method} ${req.originalUrl}`,
+    code: 'API_ROUTE_NOT_FOUND',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Enhanced global error handling middleware
@@ -1868,12 +1863,16 @@ async function startServer() {
     
     console.log('Database connection successful');
     
-    // Start the server
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('Tennis Court Reservation System ready!');
-    });
+    // Start the server (for local development)
+    if (process.env.NODE_ENV !== 'production') {
+      app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('Tennis Court Reservation System ready!');
+      });
+    } else {
+      console.log('Production mode - Vercel will handle server startup');
+    }
   } catch (error) {
     console.error('Startup failed:', error.message);
     console.error('Please check your database configuration and try again.');
@@ -1909,3 +1908,6 @@ process.on('uncaughtException', (error) => {
 });
 
 startServer();
+
+// Export for Vercel
+module.exports = app;

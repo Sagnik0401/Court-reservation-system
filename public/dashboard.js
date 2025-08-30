@@ -1,4 +1,93 @@
 // Tennis Court Dashboard JavaScript
+// Enhanced API configuration with better error handling
+function getApiBaseUrl() {
+    // For local development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return `${window.location.protocol}//${window.location.host}`;
+    }
+    
+    // For production (Vercel, GitHub Pages, etc.)
+    return window.location.origin;
+}
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('API Base URL:', API_BASE_URL);
+
+// Enhanced fetch function with better error handling and debugging
+async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
+        
+        console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
+        
+        // Log response headers for debugging
+        const contentType = response.headers.get('content-type');
+        console.log('Response Content-Type:', contentType);
+        
+        // Check if response is HTML instead of JSON
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Server returned non-JSON response:', {
+                status: response.status,
+                statusText: response.statusText,
+                contentType,
+                url,
+                responsePreview: text.substring(0, 200)
+            });
+            
+            // Try to provide more specific error message
+            if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+                throw new Error(`Server returned HTML instead of JSON. This usually means:
+                1. The API endpoint doesn't exist
+                2. There's a server routing issue
+                3. The server is down or misconfigured
+                
+                URL attempted: ${url}
+                Response status: ${response.status}`);
+            }
+            
+            throw new Error(`Invalid response format. Expected JSON but got ${contentType || 'unknown'}.
+            URL: ${url}
+            Status: ${response.status}
+            Response preview: ${text.substring(0, 100)}...`);
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('❌ API Error Response:', data);
+            throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('✅ API Success:', endpoint);
+        return data;
+    } catch (error) {
+        console.error('💥 API call failed:', {
+            endpoint,
+            url,
+            error: error.message,
+            options
+        });
+        
+        // Re-throw with more context
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error(`Network error: Unable to connect to the server. Check your internet connection and server status.`);
+        }
+        
+        throw error;
+    }
+}
+
 class TennisCourtDashboard {
     constructor() {
         this.user = null;
@@ -7,6 +96,7 @@ class TennisCourtDashboard {
         this.availableSlots = [];
         this.init();
     }
+    
 
     init() {
         console.log('🎾 Initializing Tennis Court Dashboard...');
@@ -21,7 +111,6 @@ class TennisCourtDashboard {
 
     loadUser() {
         try {
-            // ✅ FIXED: Changed userData to sessionStorage.getItem('user')
             const userData = sessionStorage.getItem('user');
             if (!userData) {
                 console.error('❌ No user data found, redirecting to login');
@@ -68,24 +157,18 @@ class TennisCourtDashboard {
         });
     }
 
-    // ✅ NEW: Load courts from API
+    // Updated loadCourts method using apiCall
     async loadCourts() {
         try {
             console.log('🏟️ Loading courts...');
-            const response = await fetch('/api/courts');
-            const data = await response.json();
+            const data = await apiCall('/api/courts');
             
-            if (data.success) {
-                this.courts = data.courts;
-                console.log(`✅ Loaded ${this.courts.length} courts`);
-                this.populateCourtSelect();
-            } else {
-                console.error('Failed to load courts:', data.message);
-                
-            }
+            this.courts = data.courts;
+            console.log(`✅ Loaded ${this.courts.length} courts`);
+            this.populateCourtSelect();
         } catch (error) {
             console.error('Error loading courts:', error);
-           
+            this.showNotification('Error loading courts', 'error');
         }
     }
 
@@ -171,7 +254,6 @@ class TennisCourtDashboard {
         }
     }
 
-    // ✅ ENHANCED: Generate valid time slots based on requirements
     generateTimeSlots() {
         const startTime = document.getElementById('startTime');
         if (!startTime) return;
@@ -220,7 +302,7 @@ class TennisCourtDashboard {
         return `${displayHour}:${minutes} ${ampm}`;
     }
 
-    // ✅ ENHANCED: Real availability checking
+    // Updated updateAvailability method using apiCall
     async updateAvailability() {
         const courtId = document.getElementById('courtSelect')?.value;
         const date = document.getElementById('bookingDate')?.value;
@@ -233,15 +315,8 @@ class TennisCourtDashboard {
         try {
             console.log(`🔍 Checking availability for Court ${courtId} on ${date}`);
             
-            const response = await fetch(`/api/bookings/availability?court=${courtId}&date=${date}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.displayAvailabilityGrid(data.availability, courtId, date);
-            } else {
-                console.error('Failed to fetch availability:', data.message);
-                this.showNotification('Error fetching availability', 'error');
-            }
+            const data = await apiCall(`/api/bookings/availability?court=${courtId}&date=${date}`);
+            this.displayAvailabilityGrid(data.availability, courtId, date);
         } catch (error) {
             console.error('Error checking availability:', error);
             this.showNotification('Error checking availability. Please try again.', 'error');
@@ -305,7 +380,7 @@ class TennisCourtDashboard {
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
-    // ✅ ENHANCED: Real booking submission
+    // Updated handleBookingSubmit method using apiCall
     async handleBookingSubmit(e) {
         e.preventDefault();
         
@@ -343,28 +418,19 @@ class TennisCourtDashboard {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking...';
 
-            const response = await fetch('/api/bookings', {
+            const result = await apiCall('/api/bookings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(bookingData)
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                this.showNotification('Court booked successfully!', 'success');
-                this.resetBookingForm();
-                this.loadBookings(); // Refresh bookings list
-                this.updateDashboardStats();
-                this.updateAvailability(); // Refresh availability
-                
-                // Show booking confirmation
-                this.showBookingConfirmation(result.booking);
-            } else {
-                throw new Error(result.message || 'Booking failed');
-            }
+            this.showNotification('Court booked successfully!', 'success');
+            this.resetBookingForm();
+            this.loadBookings(); // Refresh bookings list
+            this.updateDashboardStats();
+            this.updateAvailability(); // Refresh availability
+            
+            // Show booking confirmation
+            this.showBookingConfirmation(result.booking);
         } catch (error) {
             console.error('❌ Booking error:', error);
             this.showNotification(`Booking failed: ${error.message}`, 'error');
@@ -406,23 +472,16 @@ class TennisCourtDashboard {
         }
     }
 
-    // ✅ ENHANCED: Real booking loading
+    // Updated loadBookings method using apiCall
     async loadBookings() {
         try {
             console.log('📋 Loading user bookings...');
             
-            const response = await fetch(`/api/bookings/user/${this.user.id}`);
-            const data = await response.json();
+            const data = await apiCall(`/api/bookings/user/${this.user.id}`);
             
-            if (data.success) {
-                this.bookings = data.bookings || [];
-                console.log(`✅ Loaded ${this.bookings.length} bookings`);
-                this.displayBookings();
-            } else {
-                console.error('Failed to load bookings:', data.message);
-                this.bookings = [];
-                this.displayBookings();
-            }
+            this.bookings = data.bookings || [];
+            console.log(`✅ Loaded ${this.bookings.length} bookings`);
+            this.displayBookings();
         } catch (error) {
             console.error('Error loading bookings:', error);
             this.showNotification('Error loading bookings', 'error');
@@ -589,6 +648,7 @@ class TennisCourtDashboard {
     modal.classList.add('show');
 }
 
+// Updated updateQuickBookingSlots method using apiCall
 async updateQuickBookingSlots() {
     const courtId = document.getElementById('quickCourtSelect')?.value;
     const date = document.getElementById('quickDateSelect')?.value;
@@ -604,14 +664,8 @@ async updateQuickBookingSlots() {
     try {
         slotsDiv.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading available slots...</p>';
         
-        const response = await fetch(`/api/bookings/availability?court=${courtId}&date=${date}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            this.displayQuickBookingSlots(data.availability, courtId, date);
-        } else {
-            slotsDiv.innerHTML = '<p class="text-muted">Error loading slots</p>';
-        }
+        const data = await apiCall(`/api/bookings/availability?court=${courtId}&date=${date}`);
+        this.displayQuickBookingSlots(data.availability, courtId, date);
     } catch (error) {
         console.error('Error loading quick booking slots:', error);
         slotsDiv.innerHTML = '<p class="text-muted">Error loading slots. Please try again.</p>';
@@ -768,6 +822,7 @@ updateSelectedSlotsDisplay() {
     confirmBtn.onclick = () => this.confirmQuickBooking();
 }
 
+// Updated confirmQuickBooking method using apiCall
 async confirmQuickBooking() {
     const courtId = document.getElementById('quickCourtSelect').value;
     const date = document.getElementById('quickDateSelect').value;
@@ -784,28 +839,21 @@ async confirmQuickBooking() {
     };
     
     try {
-        const response = await fetch('/api/bookings', {
+        const result = await apiCall('/api/bookings', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(bookingData)
         });
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            this.showNotification('Court booked successfully!', 'success');
-            closeQuickBookingModal();
-            this.loadBookings();
-            this.updateDashboardStats();
-        } else {
-            throw new Error(result.message || 'Booking failed');
-        }
+        this.showNotification('Court booked successfully!', 'success');
+        closeQuickBookingModal();
+        this.loadBookings();
+        this.updateDashboardStats();
     } catch (error) {
         this.showNotification(`Booking failed: ${error.message}`, 'error');
     }
 }
 
-    // ✅ ENHANCED: Real booking cancellation
+    // Updated cancelBooking method using apiCall
     async cancelBooking(bookingId) {
         const booking = this.bookings.find(b => b.id === bookingId);
         if (!booking) return;
@@ -819,23 +867,14 @@ async confirmQuickBooking() {
         try {
             console.log(`🗑️ Cancelling booking ${bookingId}...`);
             
-            const response = await fetch(`/api/bookings/${bookingId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
+            await apiCall(`/api/bookings/${bookingId}`, {
+                method: 'DELETE'
             });
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                this.showNotification('Booking cancelled successfully', 'success');
-                this.loadBookings(); // Refresh bookings list
-                this.updateDashboardStats();
-                this.updateAvailability(); // Refresh availability if on reservations page
-            } else {
-                throw new Error(result.message || 'Failed to cancel booking');
-            }
+            this.showNotification('Booking cancelled successfully', 'success');
+            this.loadBookings(); // Refresh bookings list
+            this.updateDashboardStats();
+            this.updateAvailability(); // Refresh availability if on reservations page
         } catch (error) {
             console.error('❌ Error cancelling booking:', error);
             this.showNotification(`Failed to cancel booking: ${error.message}`, 'error');
@@ -846,7 +885,6 @@ async confirmQuickBooking() {
         this.displayBookings();
     }
 
-    // ✅ ENHANCED: Accurate dashboard stats
     updateDashboardStats() {
     const now = new Date();
     
@@ -941,6 +979,7 @@ async confirmQuickBooking() {
     checkAvailability() {
         this.showAvailabilityModal();
     }
+    
     showAvailabilityModal() {
     const modal = document.getElementById('availabilityModal');
     const courtSelect = document.getElementById('modalCourtSelect');
@@ -984,6 +1023,7 @@ async confirmQuickBooking() {
     console.log('Availability modal opened');
 }
 
+    // Updated updateModalAvailability method using apiCall
     async updateModalAvailability() {
     const courtId = document.getElementById('modalCourtSelect')?.value;
     const date = document.getElementById('modalDateSelect')?.value;
@@ -1004,20 +1044,8 @@ async confirmQuickBooking() {
         
         resultsDiv.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading availability...</p>';
         
-        const response = await fetch(`/api/bookings/availability?court=${courtId}&date=${date}`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            this.displayModalAvailabilityResults(data.availability, courtId, date);
-        } else {
-            resultsDiv.innerHTML = '<p class="text-muted">Error: ' + (data.message || 'Failed to load availability') + '</p>';
-            this.showNotification('Error fetching availability: ' + (data.message || 'Unknown error'), 'error');
-        }
+        const data = await apiCall(`/api/bookings/availability?court=${courtId}&date=${date}`);
+        this.displayModalAvailabilityResults(data.availability, courtId, date);
     } catch (error) {
         console.error('Error checking availability:', error);
         resultsDiv.innerHTML = '<p class="text-muted">Error loading availability. Please try again.</p>';
