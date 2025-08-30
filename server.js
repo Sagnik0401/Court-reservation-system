@@ -1791,31 +1791,32 @@ app.delete('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
   }
 });
 
-// Enhanced error handling for static file routes
-app.get('/', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  } catch (error) {
-    console.error('❌ Error serving index.html:', error);
-    res.status(500).send('Server error while loading the homepage');
+// Replace with this single route for SPA handling:
+app.get('*', (req, res) => {
+  // Only handle non-API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      message: `API route not found: ${req.method} ${req.originalUrl}`,
+      code: 'API_ROUTE_NOT_FOUND',
+      timestamp: new Date().toISOString()
+    });
   }
-});
-
-app.get('/dashboard.html', (req, res) => {
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-  } catch (error) {
-    console.error('❌ Error serving dashboard.html:', error);
-    res.status(500).send('Server error while loading the dashboard');
+  
+  // Serve appropriate HTML file based on path
+  let htmlFile = 'index.html';
+  
+  if (req.path.includes('dashboard') && req.path.includes('admin')) {
+    htmlFile = 'admin-dashboard.html';
+  } else if (req.path.includes('dashboard')) {
+    htmlFile = 'dashboard.html';
   }
-});
-
-app.get('/admin-dashboard.html', (req, res) => {
+  
   try {
-    res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
+    res.sendFile(path.join(__dirname, 'public', htmlFile));
   } catch (error) {
-    console.error('❌ Error serving admin-dashboard.html:', error);
-    res.status(500).send('Server error while loading the admin dashboard');
+    console.error(`❌ Error serving ${htmlFile}:`, error);
+    res.status(500).send('Server error while loading the page');
   }
 });
 
