@@ -5,16 +5,40 @@ let allBookings = [];
 let allCourts = [];
 let refreshInterval;
 
-// Determine the correct API base URL
-const getApiBaseUrl = () => {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:3000'; // Local development
-  } else {
-    return ''; // Production - use relative paths
-  }
-};
+// Updated API base URL configuration
+const API_BASE_URL = window.location.origin;
 
-const API_BASE_URL = getApiBaseUrl();
+// Updated fetch function with proper error handling
+async function apiCall(endpoint, options = {}) {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
+
+        // Check if response is HTML instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Server returned HTML instead of JSON:', text.substring(0, 200));
+            throw new Error('Server error - returned HTML instead of JSON. Check server logs.');
+        }
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('API call failed:', error);
+        throw error;
+    }
+}
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -121,42 +145,39 @@ async function loadDashboardData() {
 // Load dashboard statistics
 async function loadStats() {
     try {
-        const response = await fetch('/api/admin/stats');
-        const data = await response.json();
+        const data = await apiCall('/api/admin/stats');
         
-        if (data.success) {
-            // Calculate today's bookings with time-based completion
-            const today = new Date().toISOString().split('T')[0];
-            const now = new Date();
-            
-            let todayBookingsCount = 0;
-            let totalBookingsCount = data.stats.totalBookings;
-            
-            // If we have allBookings loaded, recalculate today's active bookings
-            if (allBookings && allBookings.length > 0) {
-                todayBookingsCount = allBookings.filter(booking => {
-                    if (booking.date !== today) return false;
-                    if (booking.status === 'cancelled') return false;
-                    
-                    // Check if booking is still active (not completed by time)
-                    const bookingDate = new Date(booking.date);
-                    const [hours, minutes] = booking.startTime.split(':');
-                    const startTime = new Date(bookingDate);
-                    startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                    const endTime = new Date(startTime.getTime() + booking.duration * 60 * 1000);
-                    const twoMinutesAfterEnd = new Date(endTime.getTime() + 2 * 60 * 1000);
-                    
-                    return now <= twoMinutesAfterEnd;
-                }).length;
-            } else {
-                todayBookingsCount = data.stats.todayBookings;
-            }
-            
-            document.getElementById('total-members').textContent = data.stats.totalMembers;
-            document.getElementById('today-bookings').textContent = todayBookingsCount;
-            document.getElementById('active-courts').textContent = data.stats.activeCourts;
-            document.getElementById('total-bookings').textContent = totalBookingsCount;
+        // Calculate today's bookings with time-based completion
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        
+        let todayBookingsCount = 0;
+        let totalBookingsCount = data.stats.totalBookings;
+        
+        // If we have allBookings loaded, recalculate today's active bookings
+        if (allBookings && allBookings.length > 0) {
+            todayBookingsCount = allBookings.filter(booking => {
+                if (booking.date !== today) return false;
+                if (booking.status === 'cancelled') return false;
+                
+                // Check if booking is still active (not completed by time)
+                const bookingDate = new Date(booking.date);
+                const [hours, minutes] = booking.startTime.split(':');
+                const startTime = new Date(bookingDate);
+                startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                const endTime = new Date(startTime.getTime() + booking.duration * 60 * 1000);
+                const twoMinutesAfterEnd = new Date(endTime.getTime() + 2 * 60 * 1000);
+                
+                return now <= twoMinutesAfterEnd;
+            }).length;
+        } else {
+            todayBookingsCount = data.stats.todayBookings;
         }
+        
+        document.getElementById('total-members').textContent = data.stats.totalMembers;
+        document.getElementById('today-bookings').textContent = todayBookingsCount;
+        document.getElementById('active-courts').textContent = data.stats.activeCourts;
+        document.getElementById('total-bookings').textContent = totalBookingsCount;
     } catch (error) {
         console.error('Error loading stats:', error);
     }
@@ -165,13 +186,9 @@ async function loadStats() {
 // Load members
 async function loadMembers() {
     try {
-        const response = await fetch('/api/members');
-        const data = await response.json();
-        
-        if (data.success) {
-            allMembers = data.members;
-            renderMembers(allMembers);
-        }
+        const data = await apiCall('/api/members');
+        allMembers = data.members;
+        renderMembers(allMembers);
     } catch (error) {
         console.error('Error loading members:', error);
         showToast('Error loading members', 'error');
@@ -193,8 +210,8 @@ function renderMembers(members) {
     sortedMembers.forEach((member, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-    <td>${index + 1}</td>
-    <td>${member.membershipId}</td>
+            <td>${index + 1}</td>
+            <td>${member.membershipId}</td>
             <td>${member.name}</td>
             <td>${member.email}</td>
             <td><span class="status-badge role-${member.role}">${member.role}</span></td>
@@ -222,16 +239,11 @@ function filterMembers() {
 // Load bookings
 async function loadBookings() {
     try {
-        const response = await fetch('/api/bookings/all', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+        const data = await apiCall('/api/bookings/all', {
+            method: 'POST'
         });
-        const data = await response.json();
-        
-        if (data.success) {
-            allBookings = data.bookings;
-            renderBookings(allBookings);
-        }
+        allBookings = data.bookings;
+        renderBookings(allBookings);
     } catch (error) {
         console.error('Error loading bookings:', error);
         showToast('Error loading bookings', 'error');
@@ -353,14 +365,10 @@ function toggleAllBookingSelection() {
 // Load courts
 async function loadCourts() {
     try {
-        const response = await fetch('/api/courts/all');
-        const data = await response.json();
-        
-        if (data.success) {
-            allCourts = data.courts;
-            renderCourts(allCourts);
-            populateCourtOptions();
-        }
+        const data = await apiCall('/api/courts/all');
+        allCourts = data.courts;
+        renderCourts(allCourts);
+        populateCourtOptions();
     } catch (error) {
         console.error('Error loading courts:', error);
         showToast('Error loading courts', 'error');
@@ -398,21 +406,14 @@ function renderCourts(courts) {
 // Toggle court status
 async function toggleCourtStatus(courtId, currentStatus) {
     try {
-        const response = await fetch(`/api/courts/${courtId}`, {
+        const data = await apiCall(`/api/courts/${courtId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ isActive: !currentStatus })
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast(data.message, 'success');
-            await loadCourts();
-            await loadStats();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast(data.message, 'success');
+        await loadCourts();
+        await loadStats();
     } catch (error) {
         console.error('Error toggling court status:', error);
         showToast('Error updating court status', 'error');
@@ -422,12 +423,8 @@ async function toggleCourtStatus(courtId, currentStatus) {
 // Load recent activity
 async function loadRecentActivity() {
     try {
-        const response = await fetch('/api/admin/recent-activity');
-        const data = await response.json();
-        
-        if (data.success) {
-            renderRecentActivity(data.activities);
-        }
+        const data = await apiCall('/api/admin/recent-activity');
+        renderRecentActivity(data.activities);
     } catch (error) {
         console.error('Error loading recent activity:', error);
     }
@@ -534,22 +531,16 @@ async function deleteMember(memberId, memberName) {
     }
 
     try {
-        const response = await fetch(`/api/members/${memberId}`, {
+        const data = await apiCall(`/api/members/${memberId}`, {
             method: 'DELETE'
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Member deleted successfully', 'success');
-            await loadMembers();
-            await loadStats();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Member deleted successfully', 'success');
+        await loadMembers();
+        await loadStats();
     } catch (error) {
         console.error('Error deleting member:', error);
-        showToast('Error deleting member', 'error');
+        showToast(error.message || 'Error deleting member', 'error');
     }
 }
 
@@ -566,25 +557,18 @@ async function handleAddMember(e) {
     };
 
     try {
-        const response = await fetch('/api/register', {
+        const data = await apiCall('/api/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Member added successfully', 'success');
-            closeModal('add-member-modal');
-            await loadMembers();
-            await loadStats();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Member added successfully', 'success');
+        closeModal('add-member-modal');
+        await loadMembers();
+        await loadStats();
     } catch (error) {
         console.error('Error adding member:', error);
-        showToast('Error adding member', 'error');
+        showToast(error.message || 'Error adding member', 'error');
     }
 }
 
@@ -602,25 +586,18 @@ async function handleEditMember(e) {
     };
 
     try {
-        const response = await fetch(`/api/members/${memberId}`, {
+        const data = await apiCall(`/api/members/${memberId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Member updated successfully', 'success');
-            closeModal('edit-member-modal');
-            await loadMembers();
-            await loadStats();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Member updated successfully', 'success');
+        closeModal('edit-member-modal');
+        await loadMembers();
+        await loadStats();
     } catch (error) {
         console.error('Error updating member:', error);
-        showToast('Error updating member', 'error');
+        showToast(error.message || 'Error updating member', 'error');
     }
 }
 
@@ -648,44 +625,32 @@ async function cancelBooking(bookingId) {
     }
 
     try {
-        const response = await fetch(`/api/bookings/${bookingId}`, {
+        const data = await apiCall(`/api/bookings/${bookingId}`, {
             method: 'DELETE'
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Booking cancelled successfully', 'success');
-            await loadBookings();
-            await loadStats();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Booking cancelled successfully', 'success');
+        await loadBookings();
+        await loadStats();
     } catch (error) {
         console.error('Error cancelling booking:', error);
-        showToast('Error cancelling booking', 'error');
+        showToast(error.message || 'Error cancelling booking', 'error');
     }
 }
 
 async function completeBooking(bookingId) {
     try {
-        const response = await fetch(`/api/bookings/${bookingId}/complete`, {
+        const data = await apiCall(`/api/bookings/${bookingId}/complete`, {
             method: 'PATCH'
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Booking marked as completed', 'success');
-            await loadBookings();
-            await loadStats();
-            await loadRecentActivity();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Booking marked as completed', 'success');
+        await loadBookings();
+        await loadStats();
+        await loadRecentActivity();
     } catch (error) {
         console.error('Error completing booking:', error);
-        showToast('Error completing booking', 'error');
+        showToast(error.message || 'Error completing booking', 'error');
     }
 }
 
@@ -703,26 +668,19 @@ async function handleEditBooking(e) {
     };
 
     try {
-        const response = await fetch(`/api/bookings/${bookingId}`, {
+        const data = await apiCall(`/api/bookings/${bookingId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast('Booking updated successfully', 'success');
-            closeModal('edit-booking-modal');
-            await loadBookings();
-            await loadStats();
-            await loadRecentActivity();
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast('Booking updated successfully', 'success');
+        closeModal('edit-booking-modal');
+        await loadBookings();
+        await loadStats();
+        await loadRecentActivity();
     } catch (error) {
         console.error('Error updating booking:', error);
-        showToast('Error updating booking', 'error');
+        showToast(error.message || 'Error updating booking', 'error');
     }
 }
 
@@ -772,26 +730,19 @@ async function bulkAction(action) {
     }
 
     try {
-        const response = await fetch('/api/bookings/bulk', {
+        const data = await apiCall('/api/bookings/bulk', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, bookingIds: selectedBookings })
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showToast(data.message, 'success');
-            await loadBookings();
-            await loadStats();
-            // Uncheck select all
-            document.getElementById('select-all-bookings').checked = false;
-        } else {
-            showToast(data.message, 'error');
-        }
+        showToast(data.message, 'success');
+        await loadBookings();
+        await loadStats();
+        // Uncheck select all
+        document.getElementById('select-all-bookings').checked = false;
     } catch (error) {
         console.error('Error performing bulk action:', error);
-        showToast('Error performing bulk action', 'error');
+        showToast(error.message || 'Error performing bulk action', 'error');
     }
 }
 
@@ -875,8 +826,6 @@ function showToast(message, type = 'success') {
     });
 }
 
-// Add these functions to your admin-dashboard.js file
-
 // Open availability modal
 function openAvailabilityModal() {
     const modal = document.getElementById('check-availability-modal');
@@ -943,20 +892,9 @@ async function updateAvailabilityResults() {
         
         resultsDiv.innerHTML = '<p class="text-muted"><i class="loading-spinner-small"></i> Loading availability...</p>';
         
-        const response = await fetch(`/api/bookings/availability?court=${courtId}&date=${date}`);
+        const data = await apiCall(`/api/bookings/availability?court=${courtId}&date=${date}`);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            displayAvailabilityResults(data.availability, courtId, date);
-        } else {
-            resultsDiv.innerHTML = '<p class="text-muted">Error: ' + (data.message || 'Failed to load availability') + '</p>';
-            showToast('Error fetching availability: ' + (data.message || 'Unknown error'), 'error');
-        }
+        displayAvailabilityResults(data.availability, courtId, date);
     } catch (error) {
         console.error('Error checking availability:', error);
         resultsDiv.innerHTML = '<p class="text-muted">Error loading availability. Please try again.</p>';
