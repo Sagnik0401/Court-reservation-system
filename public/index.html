@@ -545,108 +545,122 @@
     </div>
 
     <script>
-        // Tennis Court Login JavaScript
-// Enhanced API configuration with better error handling
-function getApiBaseUrl() {
-    // For local development
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return `${window.location.protocol}//${window.location.host}`;
-    }
-    // For production (Vercel, GitHub Pages, etc.)
-    return window.location.origin;
+const API_BASE_URL = window.location.origin;
+
+// Error handling functions
+function showError(inputId, message) {
+    const formGroup = document.getElementById(inputId).closest('.form-group');
+    formGroup.classList.add('error');
+    const errorMsg = formGroup.querySelector('.error-message');
+    if (errorMsg) errorMsg.textContent = message;
 }
 
-const API_BASE_URL = getApiBaseUrl();
-console.log('API Base URL:', API_BASE_URL);
+function clearAllErrors() {
+    document.querySelectorAll('.form-group').forEach(group => {
+        group.classList.remove('error');
+    });
+}
 
-// Enhanced fetch function with better error handling and debugging
-async function apiCall(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
+function clearError(inputId) {
+    const formGroup = document.getElementById(inputId).closest('.form-group');
+    formGroup.classList.remove('error');
+}
+
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Form submission
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const loginBtn = document.getElementById('loginBtn');
+    const buttonContent = loginBtn.querySelector('.button-content');
+    
+    clearAllErrors();
+    
+    // Validate inputs
+    if (!email) {
+        showError('email', 'Email is required');
+        return;
+    }
+    
+    if (!isValidEmail(email)) {
+        showError('email', 'Please enter a valid email address');
+        return;
+    }
+    
+    if (!password) {
+        showError('password', 'Password is required');
+        return;
+    }
+    
+    // Show loading state
+    loginBtn.classList.add('loading');
+    loginBtn.disabled = true;
+    buttonContent.textContent = 'Signing In...';
     
     try {
-        const response = await fetch(url, {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...options.headers
+                'Accept': 'application/json'
             },
-            ...options
+            body: JSON.stringify({ 
+                email: email.toLowerCase(), 
+                password: password 
+            })
         });
-        
-        console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
-        
-        // Log response headers for debugging
-        const contentType = response.headers.get('content-type');
-        console.log('Response Content-Type:', contentType);
-        
-        // Check if response is HTML instead of JSON
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Server returned non-JSON response:', {
-                status: response.status,
-                statusText: response.statusText,
-                contentType,
-                url,
-                responsePreview: text.substring(0, 200)
-            });
-            
-            // Try to provide more specific error message
-            if (text.includes('<html') || text.includes('<!DOCTYPE')) {
-                throw new Error(`Server returned HTML instead of JSON. This usually means:
-1. The API endpoint doesn't exist
-2. There's a server routing issue
-3. The server is down or misconfigured
-
-URL attempted: ${url}
-Response status: ${response.status}`);
-            }
-            
-            throw new Error(`Invalid response format. Expected JSON but got ${contentType || 'unknown'}.
-URL: ${url}
-Status: ${response.status}
-Response preview: ${text.substring(0, 100)}...`);
-        }
         
         const data = await response.json();
         
-        if (!response.ok) {
-            console.error('❌ API Error Response:', data);
-            throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        if (data.success) {
+            // Store user data
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Show success
+            const successMessage = document.getElementById('successMessage');
+            if (successMessage) {
+                successMessage.classList.add('show');
+            }
+            buttonContent.textContent = 'Success!';
+            
+            // Redirect based on role
+            setTimeout(() => {
+                if (data.user.role === 'admin') {
+                    window.location.href = '/admin-dashboard.html';
+                } else {
+                    window.location.href = '/dashboard.html';
+                }
+            }, 1000);
+            
+        } else {
+            throw new Error(data.message || 'Login failed');
         }
         
-        console.log('✅ API Success:', endpoint);
-        return data;
-        
-    } catch (error) {
-        console.error('💥 API call failed:', {
-            endpoint,
-            url,
-            error: error.message,
-            options
-        });
-        
-        // Re-throw with more context
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            throw new Error(`Network error: Unable to connect to the server. Check your internet connection and server status.`);
-        }
-        throw error;
-    }
-}
-
-// Enhanced login function using the new API call method
-async function loginUser(email, password) {
-    try {
-        const data = await apiCall('/api/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password })
-        });
-        return data;
     } catch (error) {
         console.error('Login error:', error);
-        throw error;
+        
+        // Handle different error types
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            showError('email', 'Unable to connect to server. Please check your connection.');
+        } else if (error.message.includes('credentials') || error.message.includes('Invalid')) {
+            showError('email', 'Invalid email or password');
+        } else {
+            showError('email', error.message || 'Login failed. Please try again.');
+        }
+        
+    } finally {
+        // Reset button state
+        loginBtn.classList.remove('loading');
+        loginBtn.disabled = false;
+        buttonContent.textContent = 'Sign In';
     }
-}
+});
 
 // Create floating particles
 function createParticles() {
@@ -663,185 +677,34 @@ function createParticles() {
     }
 }
 
-// Email validation function
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-// Show error for form group
-function showError(inputId, message) {
-    const formGroup = document.getElementById(inputId).closest('.form-group');
-    formGroup.classList.add('error');
-    const errorMsg = formGroup.querySelector('.error-message');
-    if (errorMsg) {
-        errorMsg.textContent = message;
-    }
-}
-
-// Clear error for form group
-function clearError(inputId) {
-    const formGroup = document.getElementById(inputId).closest('.form-group');
-    formGroup.classList.remove('error');
-}
-
-// Clear all errors
-function clearAllErrors() {
-    document.querySelectorAll('.form-group').forEach(group => {
-        group.classList.remove('error');
-    });
-}
-
-// Show success message
-function showSuccess() {
-    const successMessage = document.getElementById('successMessage');
-    successMessage.classList.add('show');
-}
-
-// Enhanced form submission handler
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    console.log('🚀 Form submitted!');
-    
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const loginBtn = document.getElementById('loginBtn');
-    const buttonContent = loginBtn.querySelector('.button-content');
-    const loadingSpinner = loginBtn.querySelector('.loading-spinner');
-    
-    // Clear previous errors
-    clearAllErrors();
-    
-    // Validate email format
-    if (!isValidEmail(email)) {
-        showError('email', 'Please enter a valid email address');
-        return;
-    }
-
-    // Validate password
-    if (!password || password.length < 1) {
-        showError('password', 'Password is required');
-        return;
-    }
-    
-    console.log('📧 Attempting login with email:', email);
-    
-    // Show loading state
-    loginBtn.classList.add('loading');
-    loginBtn.disabled = true;
-    buttonContent.textContent = 'Signing In...';
-    loadingSpinner.style.display = 'block';
-    
-    try {
-        const data = await loginUser(email, password);
-        
-        if (data.success) {
-            console.log('🎯 Login successful!');
-            console.log('👤 User data:', data.user);
-            
-            // Show success message
-            showSuccess();
-            buttonContent.textContent = 'Success!';
-            
-            // Store user data for dashboard use
-            sessionStorage.setItem('user', JSON.stringify(data.user));
-            
-            // Role-based redirection
-            const userRole = data.user.role || 'client';
-            let redirectUrl;
-            
-            if (userRole === 'admin') {
-                redirectUrl = '/admin-dashboard.html';
-                console.log('🔄 Redirecting admin to admin dashboard');
-            } else {
-                redirectUrl = '/dashboard.html';
-                console.log('🔄 Redirecting client to regular dashboard');
-            }
-            
-            // Redirect after showing success message
-            setTimeout(() => {
-                console.log(`🔄 Executing redirect to ${redirectUrl}`);
-                window.location.href = redirectUrl;
-            }, 1500);
-            
-        } else {
-            throw new Error(data.message || data.error || 'Login failed');
-        }
-        
-    } catch (error) {
-        console.error('❌ Login error:', error);
-        
-        // Show specific error based on response
-        if (error.message.includes('User not found')) {
-            showError('email', 'Email address not found');
-        } else if (error.message.includes('Invalid password')) {
-            showError('password', 'Invalid password');
-        } else if (error.message.includes('Server returned HTML')) {
-            showError('email', 'Server configuration error. Please try again later.');
-        } else if (error.message.includes('Network error')) {
-            showError('email', 'Unable to connect to server. Check your internet connection.');
-        } else {
-            showError('email', `Login failed: ${error.message}`);
-        }
-        
-        // Reset button state
-        loginBtn.classList.remove('loading');
-        loginBtn.disabled = false;
-        buttonContent.textContent = 'Sign In';
-        loadingSpinner.style.display = 'none';
-    }
-});
-
 // Forgot password handler
 function handleForgotPassword() {
-    alert('Forgot password functionality would redirect to password reset page');
-    // In real implementation: window.location.href = '/forgot-password';
+    alert('Please contact the administrator for password reset assistance.');
 }
 
-// Enhanced test functions for debugging
-async function testServer() {
-    try {
-        console.log('🔍 Testing server connection...');
-        const data = await apiCall('/api/test');
-        console.log('✅ Server test result:', data);
-        return data;
-    } catch (error) {
-        console.error('❌ Server test failed:', error);
-        return null;
-    }
-}
-
-function testRedirect() {
-    console.log('🧪 Testing redirect...');
-    window.location.href = '/dashboard.html';
-}
-
-// Add input focus effects and clear errors on input
-document.querySelectorAll('input').forEach(input => {
-    input.addEventListener('focus', function() {
-        this.parentElement.classList.add('focused');
-        clearError(this.id);
-    });
-    
-    input.addEventListener('blur', function() {
-        this.parentElement.classList.remove('focused');
-    });
-
-    input.addEventListener('input', function() {
-        clearError(this.id);
-    });
-});
-
-// Initialize particles and test server on page load
+// Input event handlers
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎨 Page loaded, creating particles...');
+    // Initialize particles
     createParticles();
     
-    // Auto-test server connection
-    testServer();
+    // Add input event listeners
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.classList.add('focused');
+            clearError(this.id);
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.classList.remove('focused');
+        });
+
+        input.addEventListener('input', function() {
+            clearError(this.id);
+        });
+    });
 });
 
-// Add mouse movement parallax effect
+// Mouse movement parallax effect
 document.addEventListener('mousemove', function(e) {
     const container = document.querySelector('.login-container');
     if (!container) return;
@@ -862,6 +725,6 @@ document.addEventListener('mouseleave', function() {
     if (!container) return;
     container.style.transform = 'perspective(1000px) rotateX(2deg) rotateY(-2deg)';
 });
-    </script>
+</script>
 </body>
 </html>

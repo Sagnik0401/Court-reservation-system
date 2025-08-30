@@ -1,92 +1,6 @@
 // Admin Create Reservations System
-
-// Enhanced API configuration with better error handling
-function getApiBaseUrl() {
-    // For local development
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return `${window.location.protocol}//${window.location.host}`;
-    }
-    // For production (Vercel, GitHub Pages, etc.)
-    return window.location.origin;
-}
-
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = window.location.origin;
 console.log('API Base URL:', API_BASE_URL);
-
-// Enhanced fetch function with better error handling and debugging
-async function apiCall(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
-    
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                ...options.headers
-            },
-            ...options
-        });
-        
-        console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
-        
-        // Log response headers for debugging
-        const contentType = response.headers.get('content-type');
-        console.log('Response Content-Type:', contentType);
-        
-        // Check if response is HTML instead of JSON
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Server returned non-JSON response:', {
-                status: response.status,
-                statusText: response.statusText,
-                contentType,
-                url,
-                responsePreview: text.substring(0, 200)
-            });
-            
-            // Try to provide more specific error message
-            if (text.includes('<html') || text.includes('<!DOCTYPE')) {
-                throw new Error(`Server returned HTML instead of JSON. This usually means:
-1. The API endpoint doesn't exist
-2. There's a server routing issue
-3. The server is down or misconfigured
-
-URL attempted: ${url}
-Response status: ${response.status}`);
-            }
-            
-            throw new Error(`Invalid response format. Expected JSON but got ${contentType || 'unknown'}.
-URL: ${url}
-Status: ${response.status}
-Response preview: ${text.substring(0, 100)}...`);
-        }
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            console.error('❌ API Error Response:', data);
-            throw new Error(data.message || `HTTP error! status: ${response.status}`);
-        }
-        
-        console.log('✅ API Success:', endpoint);
-        return data;
-        
-    } catch (error) {
-        console.error('💥 API call failed:', {
-            endpoint,
-            url,
-            error: error.message,
-            options
-        });
-        
-        // Re-throw with more context
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            throw new Error(`Network error: Unable to connect to the server. Check your internet connection and server status.`);
-        }
-        throw error;
-    }
-}
 
 class AdminCreateReservations {
     constructor() {
@@ -128,9 +42,15 @@ class AdminCreateReservations {
 
     async loadMembers() {
         try {
-            const data = await apiCall('/api/members');
-            this.members = data.members;
-            console.log(`✅ Loaded ${this.members.length} members`);
+            const response = await fetch('/api/members');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.members = data.members;
+                console.log(`✅ Loaded ${this.members.length} members`);
+            } else {
+                throw new Error(data.message || 'Failed to load members');
+            }
         } catch (error) {
             console.error('❌ Error loading members:', error);
             throw error;
@@ -139,9 +59,15 @@ class AdminCreateReservations {
 
     async loadCoachings() {
         try {
-            const data = await apiCall('/api/coachings');
-            this.coachings = data.coachings;
-            console.log(`✅ Loaded ${this.coachings.length} coaching groups`);
+            const response = await fetch('/api/coachings');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.coachings = data.coachings;
+                console.log(`✅ Loaded ${this.coachings.length} coaching groups`);
+            } else {
+                throw new Error(data.message || 'Failed to load coaching groups');
+            }
         } catch (error) {
             console.error('❌ Error loading coachings:', error);
             throw error;
@@ -150,10 +76,16 @@ class AdminCreateReservations {
 
     async loadCourts() {
         try {
-            const data = await apiCall('/api/courts/all');
-            this.courts = data.courts.filter(court => court.is_active);
-            this.populateCourtSelect();
-            console.log(`✅ Loaded ${this.courts.length} active courts`);
+            const response = await fetch('/api/courts/all');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.courts = data.courts.filter(court => court.is_active);
+                this.populateCourtSelect();
+                console.log(`✅ Loaded ${this.courts.length} active courts`);
+            } else {
+                throw new Error(data.message || 'Failed to load courts');
+            }
         } catch (error) {
             console.error('❌ Error loading courts:', error);
             throw error;
@@ -212,23 +144,23 @@ class AdminCreateReservations {
     }
 
     switchTab(tabName) {
-        // Update tab buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 
-        // Update tab panels
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-            panel.classList.remove('active');
-        });
-        document.getElementById(`${tabName}-tab`).classList.add('active');
-        
-        // Load coaching data when coaching tab is selected
-        if (tabName === 'coaching') {
-            this.coachingManager.loadCoachingsForTab();
-        }
+    // Update tab panels
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Load coaching data when coaching tab is selected
+    if (tabName === 'coaching') {
+        this.coachingManager.loadCoachingsForTab();
     }
+}
 
     handleBookingTypeChange(type) {
         this.bookingType = type;
@@ -426,10 +358,17 @@ class AdminCreateReservations {
         try {
             console.log(`Checking availability for Court ${courtId} on ${date}`);
             
-            const data = await apiCall(`/api/bookings/availability?court=${courtId}&date=${date}`);
-            this.availability = data.availability;
-            this.displayAvailableSlots();
-            this.validateForm();
+            const response = await fetch(`/api/bookings/availability?court=${courtId}&date=${date}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.availability = data.availability;
+                this.displayAvailableSlots();
+                this.validateForm();
+            } else {
+                console.error('Failed to fetch availability:', data.message);
+                this.showNotification('Error fetching availability', 'error');
+            }
         } catch (error) {
             console.error('Error checking availability:', error);
             this.showNotification('Error checking availability. Please try again.', 'error');
@@ -639,13 +578,20 @@ class AdminCreateReservations {
             this.showLoadingOverlay();
             console.log('Creating reservation:', bookingData);
 
-            const result = await apiCall('/api/admin/bookings', {
+            const response = await fetch('/api/admin/bookings', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bookingData)
             });
 
-            this.showNotification('Reservation created successfully!', 'success');
-            this.resetForm();
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                this.showNotification('Reservation created successfully!', 'success');
+                this.resetForm();
+            } else {
+                throw new Error(result.message || 'Failed to create reservation');
+            }
         } catch (error) {
             console.error('Error creating reservation:', error);
             this.showNotification(`Failed to create reservation: ${error.message}`, 'error');
@@ -777,6 +723,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Export for global access
 window.adminReservations = adminReservations;
 
+// Add these functions to your adminc.js file
+
 class CoachingManager {
     constructor(parentClass) {
         this.parent = parentClass;
@@ -825,10 +773,16 @@ class CoachingManager {
             console.log('Loading coaching groups for management...');
             this.showCoachingLoading();
 
-            const data = await apiCall('/api/coachings/all');
-            this.coachings = data.coachings;
-            this.displayCoachings();
-            console.log(`✅ Loaded ${this.coachings.length} coaching groups`);
+            const response = await fetch('/api/coachings/all');
+            const data = await response.json();
+
+            if (data.success) {
+                this.coachings = data.coachings;
+                this.displayCoachings();
+                console.log(`✅ Loaded ${this.coachings.length} coaching groups`);
+            } else {
+                throw new Error(data.message || 'Failed to load coaching groups');
+            }
         } catch (error) {
             console.error('❌ Error loading coaching groups:', error);
             this.showCoachingError('Failed to load coaching groups');
@@ -955,15 +909,22 @@ class CoachingManager {
             
             const method = this.editingCoachingId ? 'PUT' : 'POST';
             
-            const result = await apiCall(url, {
+            const response = await fetch(url, {
                 method: method,
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
 
-            const action = this.editingCoachingId ? 'updated' : 'created';
-            this.parent.showNotification(`Coaching group ${action} successfully!`, 'success');
-            this.hideCoachingModal();
-            await this.loadCoachingsForTab(); // Reload the list
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                const action = this.editingCoachingId ? 'updated' : 'created';
+                this.parent.showNotification(`Coaching group ${action} successfully!`, 'success');
+                this.hideCoachingModal();
+                await this.loadCoachingsForTab(); // Reload the list
+            } else {
+                throw new Error(result.message || `Failed to ${this.editingCoachingId ? 'update' : 'create'} coaching group`);
+            }
         } catch (error) {
             console.error('Error saving coaching group:', error);
             this.parent.showNotification(`Failed to save coaching group: ${error.message}`, 'error');
@@ -983,14 +944,21 @@ class CoachingManager {
         try {
             this.parent.showLoadingOverlay();
             
-            const result = await apiCall(`/api/coachings/${coachingId}/status`, {
+            const response = await fetch(`/api/coachings/${coachingId}/status`, {
                 method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ isActive: newStatus })
             });
 
-            const action = newStatus ? 'activated' : 'deactivated';
-            this.parent.showNotification(`Coaching group ${action} successfully!`, 'success');
-            await this.loadCoachingsForTab(); // Reload the list
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                const action = newStatus ? 'activated' : 'deactivated';
+                this.parent.showNotification(`Coaching group ${action} successfully!`, 'success');
+                await this.loadCoachingsForTab(); // Reload the list
+            } else {
+                throw new Error(result.message || 'Failed to update coaching group status');
+            }
         } catch (error) {
             console.error('Error updating coaching status:', error);
             this.parent.showNotification(`Failed to update status: ${error.message}`, 'error');

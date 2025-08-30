@@ -8,83 +8,29 @@ const PORT = process.env.PORT || 3000;
 
 console.log('🎾 Starting Tennis Court Reservation System...');
 
-// Initialize Supabase client with better error handling
-let supabase;
-try {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
-  }
-  
-  supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-  console.log('✅ Supabase client initialized');
-} catch (error) {
-  console.error('❌ Failed to initialize Supabase:', error.message);
-  process.exit(1);
-}
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static('public'));
 
-// Enhanced CORS middleware for deployment
-// Updated CORS middleware for Vercel deployment
+// CORS middleware
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const host = req.headers.host;
-  
-  // Allow all origins for now (you can restrict later)
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
-
-// Health check and API status
-app.get('/api/health', async (req, res) => {
-  try {
-    // Test database connection
-    const { data, error } = await supabase
-      .from('members')
-      .select('count')
-      .limit(1);
-    
-    if (error) throw error;
-    
-    res.json({
-      success: true,
-      message: "Tennis Court System - Healthy",
-      timestamp: new Date().toISOString(),
-      status: "operational",
-      database: "connected",
-      environment: process.env.NODE_ENV || 'development'
-    });
-  } catch (error) {
-    console.error('❌ Health check failed:', error);
-    res.status(503).json({
-      success: false,
-      message: "Service unavailable",
-      timestamp: new Date().toISOString(),
-      status: "error",
-      database: "disconnected"
-    });
+    res.sendStatus(200);
+  } else {
+    next();
   }
 });
 
-// Basic server test (keeping for backward compatibility)
+// Basic server test
 app.get('/api/test', (req, res) => {
   res.json({
     success: true,
@@ -94,66 +40,25 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Enhanced login endpoint with better validation and security
+// Login endpoint
+// Login endpoint
 app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and membership number required' });
+  }
+
   try {
-    const { email, password } = req.body;
-    
-    // Input validation
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and membership number are required',
-        code: 'MISSING_CREDENTIALS'
-      });
-    }
-
-    if (typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid credential format',
-        code: 'INVALID_FORMAT'
-      });
-    }
-
-    // Sanitize email
-    const cleanEmail = email.toLowerCase().trim();
-    
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid email format',
-        code: 'INVALID_EMAIL'
-      });
-    }
-
     const { data: member, error } = await supabase
       .from('members')
       .select('id, membership_no, email_id, first_name, last_name, role, created_at')
-      .eq('email_id', cleanEmail)
+      .eq('email_id', email.toLowerCase())
       .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Invalid credentials',
-          code: 'INVALID_CREDENTIALS'
-        });
-      }
-      throw error;
+    if (error || password !== member.membership_no) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    // Verify password (membership number)
-    if (password !== member.membership_no) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
-      });
-    }
-
-    console.log(`✅ Login successful for member: ${member.membership_no}`);
 
     res.json({
       success: true,
@@ -168,12 +73,7 @@ app.post('/api/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error during login',
-      code: 'SERVER_ERROR'
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -181,16 +81,8 @@ app.post('/api/login', async (req, res) => {
 // ADMIN ENDPOINTS
 // =========================
 
-// Admin authentication middleware
-const requireAdmin = (req, res, next) => {
-  // In a real app, you'd verify JWT or session here
-  // For now, we'll skip this check but log the attempt
-  console.log('⚠️  Admin endpoint accessed - implement proper auth in production');
-  next();
-};
-
-// Get all members with enhanced error handling
-app.get('/api/members', requireAdmin, async (req, res) => {
+// Get all members (Admin only)
+app.get('/api/members', async (req, res) => {
   try {
     const { data: members, error } = await supabase
       .from('members')
@@ -208,108 +100,47 @@ app.get('/api/members', requireAdmin, async (req, res) => {
       createdAt: member.created_at
     }));
 
-    console.log(`✅ Retrieved ${formattedMembers.length} members`);
-
     res.json({
       success: true,
-      members: formattedMembers,
-      total: formattedMembers.length
+      members: formattedMembers
     });
   } catch (error) {
     console.error('❌ Error getting members:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve members',
-      code: 'DATABASE_ERROR'
+      message: 'Server error'
     });
   }
 });
 
-// Enhanced member registration with validation
+// Add new member (Admin only)
+// Add new member
 app.post('/api/register', async (req, res) => {
+  const { membershipId, firstName, lastName, email, role = 'member' } = req.body;
+
+  if (!membershipId || !firstName || !lastName || !email) {
+    return res.status(400).json({ success: false, message: 'All fields are required' });
+  }
+
   try {
-    const { membershipId, firstName, lastName, email, role = 'member' } = req.body;
-
-    // Comprehensive validation
-    if (!membershipId || !firstName || !lastName || !email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'All fields are required (membershipId, firstName, lastName, email)',
-        code: 'MISSING_FIELDS'
-      });
-    }
-
-    // Validate field types and formats
-    if (typeof membershipId !== 'string' || membershipId.trim().length < 3) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Membership ID must be at least 3 characters',
-        code: 'INVALID_MEMBERSHIP_ID'
-      });
-    }
-
-    if (typeof firstName !== 'string' || firstName.trim().length < 1) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'First name is required',
-        code: 'INVALID_FIRST_NAME'
-      });
-    }
-
-    if (typeof lastName !== 'string' || lastName.trim().length < 1) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Last name is required',
-        code: 'INVALID_LAST_NAME'
-      });
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid email format',
-        code: 'INVALID_EMAIL'
-      });
-    }
-
-    if (!['member', 'admin'].includes(role)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Role must be either "member" or "admin"',
-        code: 'INVALID_ROLE'
-      });
-    }
-
     const { data: newMember, error } = await supabase
       .from('members')
       .insert([{
-        membership_no: membershipId.trim(),
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        email_id: cleanEmail,
+        membership_no: membershipId,
+        first_name: firstName,
+        last_name: lastName,
+        email_id: email.toLowerCase(),
         role: role
       }])
       .select()
       .single();
 
     if (error) {
-      if (error.code === '23505') {
-        // Determine which constraint failed
-        const isDuplicateEmail = error.details?.includes('email_id');
-        const message = isDuplicateEmail ? 'Email already exists' : 'Membership ID already exists';
-        return res.status(409).json({ 
-          success: false, 
-          message,
-          code: isDuplicateEmail ? 'DUPLICATE_EMAIL' : 'DUPLICATE_MEMBERSHIP_ID'
-        });
-      }
-      throw error;
+      const message = error.code === '23505' ? 'Membership ID or email already exists' : 'Server error';
+      return res.status(400).json({ success: false, message });
     }
 
-    console.log(`✅ Member registered: ${newMember.membership_no}`);
-
-    res.status(201).json({
+    res.json({
       success: true,
       message: 'Member added successfully!',
       member: {
@@ -322,17 +153,13 @@ app.post('/api/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Registration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error during registration',
-      code: 'SERVER_ERROR'
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Enhanced get all bookings with better filtering and error handling
-app.post('/api/bookings/all', requireAdmin, async (req, res) => {
+// Get all bookings (Admin only)
+// Get all bookings (Admin only)
+app.post('/api/bookings/all', async (req, res) => {
   try {
     const { data: bookings, error } = await supabase
       .from('bookings')
@@ -348,29 +175,19 @@ app.post('/api/bookings/all', requireAdmin, async (req, res) => {
     if (error) throw error;
 
     const formattedBookings = bookings
-      .filter(booking => {
-        // More robust filtering
-        const hasValidCourt = booking.courts && booking.courts.name;
-        const hasValidMemberOrCoaching = 
-          (booking.members && booking.members.first_name) || 
-          (booking.coachings && booking.coachings.group_name);
-        
-        if (!hasValidCourt || !hasValidMemberOrCoaching) {
-          console.warn(`⚠️  Invalid booking found: ${booking.id}`);
-          return false;
-        }
-        return true;
-      })
+      .filter(booking => booking.courts && (booking.members || booking.coachings)) // Filter out invalid records
       .map(booking => {
         const startTime = booking.start_time;
-        const [hours, minutes] = startTime.split(':').map(Number);
-        const startMinutes = hours * 60 + minutes;
+        const [hours, minutes] = startTime.split(':');
+        const startMinutes = parseInt(hours) * 60 + parseInt(minutes);
         const endMinutes = startMinutes + booking.duration_minutes;
         const endHours = Math.floor(endMinutes / 60);
         const endMins = endMinutes % 60;
         const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
 
-        let memberName, membershipId;
+        // Handle both member bookings and coaching bookings
+        let memberName = 'Unknown Member';
+        let membershipId = 'N/A';
         
         if (booking.members) {
           memberName = `${booking.members.first_name} ${booking.members.last_name}`;
@@ -383,13 +200,13 @@ app.post('/api/bookings/all', requireAdmin, async (req, res) => {
         return {
           id: booking.id,
           userId: booking.member_id,
-          membershipId,
-          memberName,
+          membershipId: membershipId,
+          memberName: memberName,
           courtId: booking.court_id,
           courtName: booking.courts.name,
           date: booking.booking_date,
           startTime: booking.start_time,
-          endTime,
+          endTime: endTime,
           duration: booking.duration_minutes,
           status: booking.status,
           notes: booking.notes,
@@ -398,19 +215,15 @@ app.post('/api/bookings/all', requireAdmin, async (req, res) => {
         };
       });
 
-    console.log(`✅ Retrieved ${formattedBookings.length} valid bookings`);
-
     res.json({
       success: true,
-      bookings: formattedBookings,
-      total: formattedBookings.length
+      bookings: formattedBookings
     });
   } catch (error) {
     console.error('❌ Error getting all bookings:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve bookings',
-      code: 'DATABASE_ERROR'
+      message: 'Server error'
     });
   }
 });
@@ -499,9 +312,6 @@ app.delete('/api/members/:memberId', async (req, res) => {
 // EXISTING CLIENT ENDPOINTS
 // =========================
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Get all courts
 app.get('/api/courts', async (req, res) => {
   try {
@@ -526,6 +336,7 @@ app.get('/api/courts', async (req, res) => {
   }
 });
 
+// Create new booking
 // Create new booking
 app.post('/api/bookings', async (req, res) => {
   const { courtId, date, startTime, duration, notes, userId } = req.body;
@@ -586,7 +397,6 @@ app.post('/api/bookings', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Booking error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -727,6 +537,8 @@ app.delete('/api/bookings/:bookingId', async (req, res) => {
     });
   }
 });
+
+// Add these endpoints to your existing server.js file
 
 // Update member (Admin only)
 app.put('/api/members/:memberId', async (req, res) => {
@@ -977,41 +789,39 @@ app.get('/api/courts/all', async (req, res) => {
   }
 });
 
-// Continue from here for the remaining endpoints...
-
 // Get dashboard statistics (Admin only)
 app.get('/api/admin/stats', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // Get total members with proper error handling
-    const { count: totalMembers, error: membersError } = await supabase
+    // Get total members
+    const { data: membersData, error: membersError } = await supabase
       .from('members')
-      .select('*', { count: 'exact', head: true });
+      .select('count');
     
     if (membersError) throw membersError;
     
-    // Get today's bookings with proper error handling
-    const { count: todayBookings, error: todayError } = await supabase
+    // Get today's bookings
+    const { data: todayBookings, error: todayError } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
+      .select('count')
       .eq('booking_date', today)
       .eq('status', 'confirmed');
     
     if (todayError) throw todayError;
     
-    // Get active courts with proper error handling
-    const { count: activeCourts, error: courtsError } = await supabase
+    // Get active courts
+    const { data: activeCourts, error: courtsError } = await supabase
       .from('courts')
-      .select('*', { count: 'exact', head: true })
+      .select('count')
       .eq('is_active', true);
     
     if (courtsError) throw courtsError;
     
-    // Get total bookings with proper error handling
-    const { count: totalBookings, error: revenueError } = await supabase
+    // Get total revenue (if you have pricing)
+    const { data: totalBookings, error: revenueError } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
+      .select('count')
       .eq('status', 'confirmed');
     
     if (revenueError) throw revenueError;
@@ -1019,23 +829,23 @@ app.get('/api/admin/stats', async (req, res) => {
     res.json({
       success: true,
       stats: {
-        totalMembers: totalMembers || 0,
-        todayBookings: todayBookings || 0,
-        activeCourts: activeCourts || 0,
-        totalBookings: totalBookings || 0
+        totalMembers: membersData[0]?.count || 0,
+        todayBookings: todayBookings[0]?.count || 0,
+        activeCourts: activeCourts[0]?.count || 0,
+        totalBookings: totalBookings[0]?.count || 0
       }
     });
   } catch (error) {
     console.error('❌ Error getting admin stats:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while retrieving statistics',
-      code: 'STATS_ERROR'
+      message: 'Server error'
     });
   }
 });
 
-// Get recent activity (Admin only) - Fixed with better error handling
+// Get recent activity (Admin only)
+// Get recent activity (Admin only)
 app.get('/api/admin/recent-activity', async (req, res) => {
   try {
     const { data: recentBookings, error } = await supabase
@@ -1052,25 +862,13 @@ app.get('/api/admin/recent-activity', async (req, res) => {
         coachings (group_name, coach_name)
       `)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(20); // Get more records to account for filtering
 
     if (error) throw error;
 
-    const formattedActivity = (recentBookings || [])
-      .filter(booking => {
-        // More robust filtering with null checks
-        const hasValidCourt = booking.courts && booking.courts.name;
-        const hasValidMemberOrCoaching = 
-          (booking.members && booking.members.first_name) || 
-          (booking.coachings && booking.coachings.group_name);
-        
-        if (!hasValidCourt || !hasValidMemberOrCoaching) {
-          console.warn(`⚠️  Invalid booking found: ${booking.id}`);
-          return false;
-        }
-        return true;
-      })
-      .slice(0, 10)
+    const formattedActivity = recentBookings
+      .filter(booking => booking.courts && (booking.members || booking.coachings)) // Filter valid records
+      .slice(0, 10) // Take only 10 after filtering
       .map(booking => {
         let memberName = 'Unknown Member';
         let membershipId = 'N/A';
@@ -1104,14 +902,13 @@ app.get('/api/admin/recent-activity', async (req, res) => {
     console.error('❌ Error getting recent activity:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while retrieving recent activity',
-      code: 'ACTIVITY_ERROR'
+      message: 'Server error'
     });
   }
 });
 
-// Clean up orphaned bookings with enhanced error handling
-app.post('/api/admin/cleanup-bookings', requireAdmin, async (req, res) => {
+// Clean up orphaned bookings (run this once to fix existing data)
+app.post('/api/admin/cleanup-bookings', async (req, res) => {
   try {
     // Find bookings without valid members or coachings
     const { data: orphanedBookings, error } = await supabase
@@ -1126,7 +923,7 @@ app.post('/api/admin/cleanup-bookings', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    const toDelete = (orphanedBookings || []).filter(booking => 
+    const toDelete = orphanedBookings.filter(booking => 
       !booking.members && !booking.coachings
     );
 
@@ -1145,45 +942,31 @@ app.post('/api/admin/cleanup-bookings', requireAdmin, async (req, res) => {
       res.json({
         success: true,
         message: `Cleaned up ${toDelete.length} orphaned bookings`,
-        deletedIds: idsToDelete,
-        deletedCount: toDelete.length
+        deletedIds: idsToDelete
       });
     } else {
       res.json({
         success: true,
-        message: 'No orphaned bookings found',
-        deletedCount: 0
+        message: 'No orphaned bookings found'
       });
     }
   } catch (error) {
     console.error('❌ Error cleaning up bookings:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during cleanup',
-      code: 'CLEANUP_ERROR'
+      message: 'Server error during cleanup'
     });
   }
 });
 
-// Bulk booking operations with enhanced validation
-app.post('/api/bookings/bulk', requireAdmin, async (req, res) => {
+// Bulk booking operations (Admin only)
+app.post('/api/bookings/bulk', async (req, res) => {
   const { action, bookingIds } = req.body;
 
-  if (!action || !bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+  if (!action || !bookingIds || !Array.isArray(bookingIds)) {
     return res.status(400).json({
       success: false,
-      message: 'Action and at least one booking ID are required',
-      code: 'INVALID_BULK_REQUEST'
-    });
-  }
-
-  // Validate booking IDs are numbers
-  const validIds = bookingIds.filter(id => Number.isInteger(parseInt(id)));
-  if (validIds.length !== bookingIds.length) {
-    return res.status(400).json({
-      success: false,
-      message: 'All booking IDs must be valid integers',
-      code: 'INVALID_BOOKING_IDS'
+      message: 'Action and booking IDs are required'
     });
   }
 
@@ -1200,39 +983,37 @@ app.post('/api/bookings/bulk', requireAdmin, async (req, res) => {
       default:
         return res.status(400).json({
           success: false,
-          message: 'Invalid action. Must be "cancel" or "complete"',
-          code: 'INVALID_ACTION'
+          message: 'Invalid action'
         });
     }
 
     const { data: updatedBookings, error } = await supabase
       .from('bookings')
       .update(updateData)
-      .in('id', validIds)
-      .select('id, status');
+      .in('id', bookingIds)
+      .select('id');
 
     if (error) throw error;
 
-    const updatedCount = updatedBookings ? updatedBookings.length : 0;
-    console.log(`✅ Bulk ${action} completed for ${updatedCount} bookings`);
+    console.log(`✅ Bulk ${action} completed for ${updatedBookings.length} bookings`);
 
     res.json({
       success: true,
-      message: `${updatedCount} bookings ${action}ed successfully`,
-      updatedCount: updatedCount,
-      updatedIds: updatedBookings ? updatedBookings.map(b => b.id) : []
+      message: `${updatedBookings.length} bookings ${action}ed successfully`,
+      updatedCount: updatedBookings.length
     });
   } catch (error) {
     console.error(`❌ Bulk ${action} error:`, error);
     res.status(500).json({
       success: false,
-      message: `Server error during bulk ${action}`,
-      code: 'BULK_OPERATION_ERROR'
+      message: `Server error during bulk ${action}`
     });
   }
 });
 
-// Get all coaching groups with enhanced error handling
+// Add after your existing endpoints, before the static file routes
+
+// Get all coaching groups
 app.get('/api/coachings', async (req, res) => {
   try {
     const { data: coachings, error } = await supabase
@@ -1243,7 +1024,7 @@ app.get('/api/coachings', async (req, res) => {
 
     if (error) throw error;
 
-    const formattedCoachings = (coachings || []).map(coaching => ({
+    const formattedCoachings = coachings.map(coaching => ({
       id: coaching.id,
       groupName: coaching.group_name,
       coachName: coaching.coach_name,
@@ -1254,74 +1035,39 @@ app.get('/api/coachings', async (req, res) => {
 
     res.json({
       success: true,
-      coachings: formattedCoachings,
-      total: formattedCoachings.length
+      coachings: formattedCoachings
     });
   } catch (error) {
     console.error('❌ Error getting coachings:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while retrieving coaching groups',
-      code: 'COACHINGS_ERROR'
+      message: 'Server error'
     });
   }
 });
 
-// Create admin booking with enhanced validation
-app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
+// Create admin booking
+app.post('/api/admin/bookings', async (req, res) => {
   const { courtId, date, startTime, duration, notes, bookingType, userId, coachingId } = req.body;
 
-  // Enhanced validation
   if (!courtId || !date || !startTime || !duration || !bookingType) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Court, date, start time, duration, and booking type are required',
-      code: 'MISSING_REQUIRED_FIELDS'
+      message: 'Court, date, start time, duration, and booking type are required' 
     });
   }
 
-  if (!['member', 'coaching'].includes(bookingType)) {
+  if (bookingType === 'member' && !userId) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Booking type must be either "member" or "coaching"',
-      code: 'INVALID_BOOKING_TYPE'
+      message: 'User ID is required for member bookings' 
     });
   }
 
-  if (bookingType === 'member' && (!userId || !Number.isInteger(parseInt(userId)))) {
+  if (bookingType === 'coaching' && !coachingId) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Valid User ID is required for member bookings',
-      code: 'INVALID_USER_ID'
-    });
-  }
-
-  if (bookingType === 'coaching' && (!coachingId || !Number.isInteger(parseInt(coachingId)))) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Valid Coaching ID is required for coaching bookings',
-      code: 'INVALID_COACHING_ID'
-    });
-  }
-
-  if (![30, 60, 90, 120].includes(parseInt(duration))) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Duration must be 30, 60, 90, or 120 minutes',
-      code: 'INVALID_DURATION'
-    });
-  }
-
-  // Validate date format and ensure it's not in the past
-  const bookingDate = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  if (isNaN(bookingDate.getTime()) || bookingDate < today) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Invalid date or date is in the past',
-      code: 'INVALID_DATE'
+      message: 'Coaching ID is required for coaching bookings' 
     });
   }
 
@@ -1340,19 +1086,18 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
     if (conflictCheck) {
       return res.status(409).json({ 
         success: false, 
-        message: 'Time slot already booked. Please choose a different time.',
-        code: 'TIME_SLOT_CONFLICT'
+        message: 'Time slot already booked' 
       });
     }
 
-    // Create booking data
+    // Create booking
     const bookingData = {
       court_id: parseInt(courtId),
       booking_date: date,
       start_time: startTime,
       duration_minutes: parseInt(duration),
       status: 'confirmed',
-      notes: notes?.trim() || null,
+      notes: notes || null,
       booking_type: bookingType
     };
 
@@ -1377,17 +1122,12 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     console.log('✅ Admin booking created:', booking.id);
 
-    let entityName = 'Unknown';
-    if (bookingType === 'member' && booking.members) {
+    let entityName = '';
+    if (bookingType === 'member') {
       entityName = `${booking.members.first_name} ${booking.members.last_name}`;
-    } else if (bookingType === 'coaching' && booking.coachings) {
+    } else {
       entityName = booking.coachings.group_name;
     }
-
-    // Calculate end time
-    const startMinutes = booking.start_time.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
-    const endMinutes = startMinutes + booking.duration_minutes;
-    const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
 
     res.json({
       success: true,
@@ -1398,7 +1138,6 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
         courtName: booking.courts.name,
         date: booking.booking_date,
         startTime: booking.start_time,
-        endTime: endTime,
         duration: booking.duration_minutes,
         status: booking.status,
         bookingType: booking.booking_type,
@@ -1411,14 +1150,15 @@ app.post('/api/admin/bookings', requireAdmin, async (req, res) => {
     console.error('❌ Admin booking error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while creating reservation',
-      code: 'BOOKING_CREATION_ERROR'
+      message: 'Server error while creating reservation'
     });
   }
 });
 
-// Get all coaching groups including inactive with enhanced error handling
-app.get('/api/coachings/all', requireAdmin, async (req, res) => {
+// Add these endpoints to your server.js file
+
+// Get all coaching groups including inactive (Admin only)
+app.get('/api/coachings/all', async (req, res) => {
   try {
     const { data: coachings, error } = await supabase
       .from('coachings')
@@ -1427,7 +1167,7 @@ app.get('/api/coachings/all', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    const formattedCoachings = (coachings || []).map(coaching => ({
+    const formattedCoachings = coachings.map(coaching => ({
       id: coaching.id,
       groupName: coaching.group_name,
       coachName: coaching.coach_name,
@@ -1439,54 +1179,32 @@ app.get('/api/coachings/all', requireAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      coachings: formattedCoachings,
-      total: formattedCoachings.length
+      coachings: formattedCoachings
     });
   } catch (error) {
     console.error('❌ Error getting all coaching groups:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while retrieving all coaching groups',
-      code: 'ALL_COACHINGS_ERROR'
+      message: 'Server error'
     });
   }
 });
 
-// Create new coaching group with enhanced validation
-app.post('/api/coachings', requireAdmin, async (req, res) => {
+// Create new coaching group (Admin only)
+app.post('/api/coachings', async (req, res) => {
   const { groupName, coachName, description, maxParticipants } = req.body;
 
-  // Enhanced validation
-  if (!groupName?.trim() || !coachName?.trim()) {
+  if (!groupName || !coachName) {
     return res.status(400).json({
       success: false,
-      message: 'Group name and coach name are required and cannot be empty',
-      code: 'MISSING_REQUIRED_FIELDS'
+      message: 'Group name and coach name are required'
     });
   }
 
-  if (groupName.trim().length < 2 || groupName.trim().length > 100) {
+  if (maxParticipants < 1 || maxParticipants > 20) {
     return res.status(400).json({
       success: false,
-      message: 'Group name must be between 2 and 100 characters',
-      code: 'INVALID_GROUP_NAME_LENGTH'
-    });
-  }
-
-  if (coachName.trim().length < 2 || coachName.trim().length > 100) {
-    return res.status(400).json({
-      success: false,
-      message: 'Coach name must be between 2 and 100 characters',
-      code: 'INVALID_COACH_NAME_LENGTH'
-    });
-  }
-
-  const participants = parseInt(maxParticipants);
-  if (!Number.isInteger(participants) || participants < 1 || participants > 20) {
-    return res.status(400).json({
-      success: false,
-      message: 'Max participants must be a number between 1 and 20',
-      code: 'INVALID_MAX_PARTICIPANTS'
+      message: 'Max participants must be between 1 and 20'
     });
   }
 
@@ -1494,28 +1212,22 @@ app.post('/api/coachings', requireAdmin, async (req, res) => {
     const { data: newCoaching, error } = await supabase
       .from('coachings')
       .insert([{
-        group_name: groupName.trim(),
-        coach_name: coachName.trim(),
-        description: description?.trim() || null,
-        max_participants: participants
+        group_name: groupName,
+        coach_name: coachName,
+        description: description || null,
+        max_participants: maxParticipants
       }])
       .select()
       .single();
 
     if (error) {
-      if (error.code === '23505') {
-        return res.status(409).json({ 
-          success: false, 
-          message: 'Coaching group name already exists',
-          code: 'DUPLICATE_GROUP_NAME'
-        });
-      }
-      throw error;
+      const message = error.code === '23505' ? 'Coaching group name already exists' : 'Server error';
+      return res.status(400).json({ success: false, message });
     }
 
     console.log('✅ Coaching group created:', newCoaching.id);
 
-    res.status(201).json({
+    res.json({
       success: true,
       message: 'Coaching group created successfully!',
       coaching: {
@@ -1530,59 +1242,26 @@ app.post('/api/coachings', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error creating coaching group:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error while creating coaching group',
-      code: 'COACHING_CREATION_ERROR'
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Update coaching group with enhanced validation
-app.put('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
+// Update coaching group (Admin only)
+app.put('/api/coachings/:coachingId', async (req, res) => {
   const { coachingId } = req.params;
   const { groupName, coachName, description, maxParticipants } = req.body;
 
-  // Validate coaching ID
-  if (!Number.isInteger(parseInt(coachingId))) {
+  if (!groupName || !coachName) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid coaching ID',
-      code: 'INVALID_COACHING_ID'
+      message: 'Group name and coach name are required'
     });
   }
 
-  // Enhanced validation
-  if (!groupName?.trim() || !coachName?.trim()) {
+  if (maxParticipants < 1 || maxParticipants > 20) {
     return res.status(400).json({
       success: false,
-      message: 'Group name and coach name are required and cannot be empty',
-      code: 'MISSING_REQUIRED_FIELDS'
-    });
-  }
-
-  if (groupName.trim().length < 2 || groupName.trim().length > 100) {
-    return res.status(400).json({
-      success: false,
-      message: 'Group name must be between 2 and 100 characters',
-      code: 'INVALID_GROUP_NAME_LENGTH'
-    });
-  }
-
-  if (coachName.trim().length < 2 || coachName.trim().length > 100) {
-    return res.status(400).json({
-      success: false,
-      message: 'Coach name must be between 2 and 100 characters',
-      code: 'INVALID_COACH_NAME_LENGTH'
-    });
-  }
-
-  const participants = parseInt(maxParticipants);
-  if (!Number.isInteger(participants) || participants < 1 || participants > 20) {
-    return res.status(400).json({
-      success: false,
-      message: 'Max participants must be a number between 1 and 20',
-      code: 'INVALID_MAX_PARTICIPANTS'
+      message: 'Max participants must be between 1 and 20'
     });
   }
 
@@ -1591,17 +1270,14 @@ app.put('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
     const { data: existingGroup, error: checkError } = await supabase
       .from('coachings')
       .select('id')
-      .eq('group_name', groupName.trim())
+      .eq('group_name', groupName)
       .neq('id', parseInt(coachingId))
-      .maybeSingle();
-
-    if (checkError) throw checkError;
+      .single();
 
     if (existingGroup) {
-      return res.status(409).json({
+      return res.status(400).json({
         success: false,
-        message: 'Coaching group name already exists',
-        code: 'DUPLICATE_GROUP_NAME'
+        message: 'Coaching group name already exists'
       });
     }
 
@@ -1609,26 +1285,17 @@ app.put('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
     const { data: updatedCoaching, error: updateError } = await supabase
       .from('coachings')
       .update({
-        group_name: groupName.trim(),
-        coach_name: coachName.trim(),
-        description: description?.trim() || null,
-        max_participants: participants,
+        group_name: groupName,
+        coach_name: coachName,
+        description: description || null,
+        max_participants: maxParticipants,
         updated_at: new Date().toISOString()
       })
       .eq('id', parseInt(coachingId))
       .select()
       .single();
 
-    if (updateError) {
-      if (updateError.code === 'PGRST116') {
-        return res.status(404).json({
-          success: false,
-          message: 'Coaching group not found',
-          code: 'COACHING_NOT_FOUND'
-        });
-      }
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     console.log('✅ Coaching group updated:', updatedCoaching.id);
 
@@ -1649,31 +1316,20 @@ app.put('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
     console.error('❌ Update coaching group error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while updating coaching group',
-      code: 'COACHING_UPDATE_ERROR'
+      message: 'Server error while updating coaching group'
     });
   }
 });
 
-// Update coaching group status with validation
-app.put('/api/coachings/:coachingId/status', requireAdmin, async (req, res) => {
+// Update coaching group status (Admin only)
+app.put('/api/coachings/:coachingId/status', async (req, res) => {
   const { coachingId } = req.params;
   const { isActive } = req.body;
-
-  // Validate coaching ID
-  if (!Number.isInteger(parseInt(coachingId))) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid coaching ID',
-      code: 'INVALID_COACHING_ID'
-    });
-  }
 
   if (typeof isActive !== 'boolean') {
     return res.status(400).json({
       success: false,
-      message: 'isActive must be a boolean value (true or false)',
-      code: 'INVALID_STATUS_VALUE'
+      message: 'isActive must be a boolean value'
     });
   }
 
@@ -1685,19 +1341,10 @@ app.put('/api/coachings/:coachingId/status', requireAdmin, async (req, res) => {
         updated_at: new Date().toISOString()
       })
       .eq('id', parseInt(coachingId))
-      .select('id, group_name, coach_name, is_active')
+      .select()
       .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return res.status(404).json({
-          success: false,
-          message: 'Coaching group not found',
-          code: 'COACHING_NOT_FOUND'
-        });
-      }
-      throw error;
-    }
+    if (error) throw error;
 
     console.log(`✅ Coaching group ${coachingId} status updated:`, isActive);
 
@@ -1715,199 +1362,95 @@ app.put('/api/coachings/:coachingId/status', requireAdmin, async (req, res) => {
     console.error('❌ Error updating coaching status:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while updating coaching status',
-      code: 'STATUS_UPDATE_ERROR'
+      message: 'Server error while updating coaching status'
     });
   }
 });
 
-// Delete coaching group with enhanced safety checks
-app.delete('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
+// Delete coaching group (Admin only) - Optional, use with caution
+app.delete('/api/coachings/:coachingId', async (req, res) => {
   const { coachingId } = req.params;
 
-  // Validate coaching ID
-  if (!Number.isInteger(parseInt(coachingId))) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid coaching ID',
-      code: 'INVALID_COACHING_ID'
-    });
-  }
-
   try {
-    // First, check if coaching group has any bookings (past or future)
-    const { count: bookingCount, error: bookingError } = await supabase
+    // First, check if coaching group has active bookings
+    const { data: activeBookings, error: bookingError } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('coaching_id', parseInt(coachingId));
+      .select('id')
+      .eq('coaching_id', parseInt(coachingId))
+      .eq('status', 'confirmed');
 
     if (bookingError) throw bookingError;
 
-    if (bookingCount > 0) {
+    if (activeBookings && activeBookings.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete coaching group with existing bookings. Please remove or reassign all bookings first.',
-        code: 'HAS_EXISTING_BOOKINGS',
-        bookingCount: bookingCount
+        message: 'Cannot delete coaching group with active bookings. Please cancel or complete their bookings first.'
       });
     }
 
     // Delete the coaching group
-    const { data: deletedCoaching, error: deleteError } = await supabase
+    const { error: deleteError } = await supabase
       .from('coachings')
       .delete()
-      .eq('id', parseInt(coachingId))
-      .select('id, group_name')
-      .single();
+      .eq('id', parseInt(coachingId));
 
-    if (deleteError) {
-      if (deleteError.code === 'PGRST116') {
-        return res.status(404).json({
-          success: false,
-          message: 'Coaching group not found',
-          code: 'COACHING_NOT_FOUND'
-        });
-      }
-      throw deleteError;
-    }
+    if (deleteError) throw deleteError;
 
     console.log(`✅ Coaching group ${coachingId} deleted successfully`);
 
     res.json({
       success: true,
-      message: `Coaching group "${deletedCoaching.group_name}" deleted successfully`,
-      deletedCoaching: {
-        id: deletedCoaching.id,
-        groupName: deletedCoaching.group_name
-      }
+      message: 'Coaching group deleted successfully'
     });
   } catch (error) {
     console.error('❌ Error deleting coaching group:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while deleting coaching group',
-      code: 'COACHING_DELETE_ERROR'
+      message: 'Server error while deleting coaching group'
     });
   }
 });
 
-// Enhanced global error handling middleware
+// Static file routes
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/admin-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
+});
+
+// Error handling
 app.use((err, req, res, next) => {
-  console.error('💥 Unhandled Error:', err);
-  
-  // Don't send error details in production
-  const errorMessage = process.env.NODE_ENV === 'production' 
-    ? 'Internal server error' 
-    : err.message;
-    
+  console.error('💥 Error:', err);
   res.status(500).json({
     success: false,
-    message: errorMessage,
-    code: 'INTERNAL_SERVER_ERROR',
-    timestamp: new Date().toISOString()
+    message: 'Internal server error'
   });
 });
 
-// Enhanced 404 handler - ONLY for API routes
-app.use('/api/*', (req, res) => {
-  console.warn(`⚠️  API 404 - Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    message: `API route not found: ${req.method} ${req.originalUrl}`,
-    code: 'API_ROUTE_NOT_FOUND',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Enhanced global error handling middleware
-app.use((err, req, res, next) => {
-  console.error('💥 Unhandled Error:', err);
-  
-  // Don't send error details in production
-  const errorMessage = process.env.NODE_ENV === 'production' 
-    ? 'Internal server error' 
-    : err.message;
-    
-  res.status(500).json({
-    success: false,
-    message: errorMessage,
-    code: 'INTERNAL_SERVER_ERROR',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Enhanced 404 handler
 app.use('*', (req, res) => {
-  console.warn(`⚠️  404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
-    message: `Route not found: ${req.method} ${req.originalUrl}`,
-    code: 'ROUTE_NOT_FOUND',
-    timestamp: new Date().toISOString()
+    message: 'Route not found'
   });
 });
 
-// Enhanced server startup with better error handling
+// Server startup
 async function startServer() {
   try {
-    // Test database connection
-    console.log('Testing database connection...');
-    const { data, error } = await supabase
-      .from('members')
-      .select('count')
-      .limit(1);
-    
-    if (error) {
-      throw new Error(`Database connection failed: ${error.message}`);
-    }
-    
-    console.log('Database connection successful');
-    
-    // Start the server (for local development)
-    if (process.env.NODE_ENV !== 'production') {
-      app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log('Tennis Court Reservation System ready!');
-      });
-    } else {
-      console.log('Production mode - Vercel will handle server startup');
-    }
+    await supabase.from('members').select('count').limit(1);
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    });
   } catch (error) {
-    console.error('Startup failed:', error.message);
-    console.error('Please check your database configuration and try again.');
+    console.error('❌ Startup failed:', error.message);
     process.exit(1);
   }
 }
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit the process in production
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1);
-  }
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  // Don't exit the process in production, but log it
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1);
-  }
-});
-
 startServer();
-
-// Export for Vercel
-module.exports = app;

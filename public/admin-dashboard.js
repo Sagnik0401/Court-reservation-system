@@ -5,19 +5,8 @@ let allBookings = [];
 let allCourts = [];
 let refreshInterval;
 
-// Enhanced API configuration with better error handling
-function getApiBaseUrl() {
-    // For local development
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return `${window.location.protocol}//${window.location.host}`;
-    }
-    // For production (Vercel, GitHub Pages, etc.)
-    return window.location.origin;
-}
-
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = window.location.origin;
 console.log('API Base URL:', API_BASE_URL);
-
 // Enhanced fetch function with better error handling and debugging
 async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
