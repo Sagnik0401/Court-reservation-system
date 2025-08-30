@@ -1,34 +1,89 @@
 // Tennis Court Dashboard JavaScript
-// Centralized API configuration and error handling
-const API_BASE_URL = window.location.origin;
+// Enhanced API configuration with better error handling
+function getApiBaseUrl() {
+    // For local development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return `${window.location.protocol}//${window.location.host}`;
+    }
+    
+    // For production (Vercel, GitHub Pages, etc.)
+    return window.location.origin;
+}
 
-// Updated fetch function with proper error handling
+const API_BASE_URL = getApiBaseUrl();
+console.log('API Base URL:', API_BASE_URL);
+
+// Enhanced fetch function with better error handling and debugging
 async function apiCall(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
+    
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 ...options.headers
             },
             ...options
         });
         
-        // Check if response is HTML instead of JSON
+        console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
+        
+        // Log response headers for debugging
         const contentType = response.headers.get('content-type');
+        console.log('Response Content-Type:', contentType);
+        
+        // Check if response is HTML instead of JSON
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
-            console.error('Server returned HTML instead of JSON:', text.substring(0, 200));
-            throw new Error('Server error - returned HTML instead of JSON. Check server logs.');
+            console.error('❌ Server returned non-JSON response:', {
+                status: response.status,
+                statusText: response.statusText,
+                contentType,
+                url,
+                responsePreview: text.substring(0, 200)
+            });
+            
+            // Try to provide more specific error message
+            if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+                throw new Error(`Server returned HTML instead of JSON. This usually means:
+                1. The API endpoint doesn't exist
+                2. There's a server routing issue
+                3. The server is down or misconfigured
+                
+                URL attempted: ${url}
+                Response status: ${response.status}`);
+            }
+            
+            throw new Error(`Invalid response format. Expected JSON but got ${contentType || 'unknown'}.
+            URL: ${url}
+            Status: ${response.status}
+            Response preview: ${text.substring(0, 100)}...`);
         }
         
         const data = await response.json();
         
         if (!response.ok) {
+            console.error('❌ API Error Response:', data);
             throw new Error(data.message || `HTTP error! status: ${response.status}`);
         }
+        
+        console.log('✅ API Success:', endpoint);
         return data;
     } catch (error) {
-        console.error('API call failed:', error);
+        console.error('💥 API call failed:', {
+            endpoint,
+            url,
+            error: error.message,
+            options
+        });
+        
+        // Re-throw with more context
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            throw new Error(`Network error: Unable to connect to the server. Check your internet connection and server status.`);
+        }
+        
         throw error;
     }
 }

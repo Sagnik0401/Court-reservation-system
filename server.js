@@ -1791,33 +1791,32 @@ app.delete('/api/coachings/:coachingId', requireAdmin, async (req, res) => {
   }
 });
 
-// Replace with this single route for SPA handling:
-app.get('*', (req, res) => {
-  // Only handle non-API routes
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({
-      success: false,
-      message: `API route not found: ${req.method} ${req.originalUrl}`,
-      code: 'API_ROUTE_NOT_FOUND',
-      timestamp: new Date().toISOString()
-    });
-  }
+// Enhanced global error handling middleware
+app.use((err, req, res, next) => {
+  console.error('💥 Unhandled Error:', err);
   
-  // Serve appropriate HTML file based on path
-  let htmlFile = 'index.html';
-  
-  if (req.path.includes('dashboard') && req.path.includes('admin')) {
-    htmlFile = 'admin-dashboard.html';
-  } else if (req.path.includes('dashboard')) {
-    htmlFile = 'dashboard.html';
-  }
-  
-  try {
-    res.sendFile(path.join(__dirname, 'public', htmlFile));
-  } catch (error) {
-    console.error(`❌ Error serving ${htmlFile}:`, error);
-    res.status(500).send('Server error while loading the page');
-  }
+  // Don't send error details in production
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message;
+    
+  res.status(500).json({
+    success: false,
+    message: errorMessage,
+    code: 'INTERNAL_SERVER_ERROR',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Enhanced 404 handler - ONLY for API routes
+app.use('/api/*', (req, res) => {
+  console.warn(`⚠️  API 404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: `API route not found: ${req.method} ${req.originalUrl}`,
+    code: 'API_ROUTE_NOT_FOUND',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Enhanced global error handling middleware
@@ -1864,12 +1863,16 @@ async function startServer() {
     
     console.log('Database connection successful');
     
-    // Start the server
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log('Tennis Court Reservation System ready!');
-    });
+    // Start the server (for local development)
+    if (process.env.NODE_ENV !== 'production') {
+      app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('Tennis Court Reservation System ready!');
+      });
+    } else {
+      console.log('Production mode - Vercel will handle server startup');
+    }
   } catch (error) {
     console.error('Startup failed:', error.message);
     console.error('Please check your database configuration and try again.');
@@ -1905,3 +1908,6 @@ process.on('uncaughtException', (error) => {
 });
 
 startServer();
+
+// Export for Vercel
+module.exports = app;
